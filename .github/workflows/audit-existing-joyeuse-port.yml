@@ -46,6 +46,10 @@ jobs:
                   if any(k in low for k in ("updater-script", "update-binary", "metadata", "payload", "android-info", "dynamic_partitions")):
                       info = z.getinfo(n)
                       print(f"{n}\t{info.file_size} bytes")
+              for n in ("META-INF/com/android/metadata", "META-INF/com/android/metadata.pb", "META-INF/com/android/otacert"):
+                  if n in names and not n.endswith(".pb") and not n.endswith("otacert"):
+                      print("--- " + n + " contents ---")
+                      print(z.read(n).decode("utf-8", "replace"))
               scripts = [n for n in names if n.lower().endswith("updater-script")]
               for n in scripts[:3]:
                   print(f"--- {n} ---")
