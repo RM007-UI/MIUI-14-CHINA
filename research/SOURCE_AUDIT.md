@@ -56,6 +56,14 @@ Important config risk: `cust_defconfig` enables `CONFIG_MODULE_SIG_FORCE=y` and 
 
 The device tree sets `TARGET_KERNEL_CLANG_VERSION := alchemist` and several LLVM/LLD flags. The config file alone does not prove that the expected compiler exists in the chosen Android build tree or that this kernel revision builds with that toolchain. The matching manifest, compiler revision, vendor blobs, and device-specific modules remain unverified.
 
+### Android 13 device/vendor interface audit
+
+The `nekoshirro/device_xiaomi_joyeuse` `13-FBEv1` device manifest declares compatibility target level 4 and a set of HIDL hardware interfaces including audio, fingerprint, camera, keymaster/gatekeeper, radio, power, and Qualcomm/Dolby services. Its compatibility matrix lists required framework-facing interfaces. These declarations are useful as the target device's integration contract, but they do not prove that the MIUI 14 `cupid` framework will accept this combination without VINTF, permission, SELinux, and service-level adjustments.
+
+The matching `nekoshirro/vendor_xiaomi_joyeuse` branch `13` contains generated vendor build definitions and a large `joyeuse-vendor.mk`/proprietary blob set, so there is at least a concrete Android 13-labelled target vendor snapshot to audit. Its `BoardConfigVendor.mk` is only a generated header in the inspected revision; that file alone does not identify the exact firmware extraction baseline. The existence of proprietary blobs also does not mean they can be redistributed inside a public ROM artifact.
+
+This strengthens the target-side research baseline, but a key gap remains: no matching repo manifest or build record has yet proved that the exact `13-FBEv1` device tree, vendor branch `13`, and ArrowOS kernel branch `arrow-13.0` were built and tested together. Their labels are not proof of a coherent tested stack.
+
 ## Engineering conclusion
 
 This is a **high-risk cross-device port**: the source and target have different SoCs and vendor hardware stacks. The likely reusable part is the MIUI framework/system layer as a research target, not the source device's kernel, vendor image, firmware or partition layout. Even framework-level porting requires device-specific integration work and cannot be promised to boot.
@@ -65,7 +73,7 @@ The recent `joyeuse` device/vendor trees provide a better lead for further sourc
 ## Next safe research steps
 
 1. Continue validating the closest filename-level pair: `ArrowOS-Devices/android_kernel_xiaomi_sm6250` `arrow-13.0` plus `nekoshirro/device_xiaomi_joyeuse` `13-FBEv1`. Check the exact manifest and compiler revision, plus the `CONFIG_MODULE_SIG_FORCE` signing implications for device/vendor modules. The config path matches, but no paired build or runtime test is confirmed. Do not rename configs or mix this with the separate EvolutionX `miatoll_defconfig` layout.
-2. Inspect Android 13 device-tree and vendor dependencies, proprietary blob baseline and compatibility-matrix declarations.
+2. Find a build manifest or public build record proving which exact kernel, device tree, vendor branch, and firmware baseline were used together; audit VINTF declarations and proprietary blob provenance.
 3. Compare the source ROM's Android 13 framework/vendor interfaces against the selected target device/vendor baseline; do not assume the Xiaomi 12's proprietary components are reusable.
 4. Record target partition/boot configuration from public source metadata, without issuing commands to the user's phone.
 5. Keep CI limited to static checks until a documented and reproducible build strategy exists. Do not generate flashable artifacts or run `adb`/`fastboot` in CI.
