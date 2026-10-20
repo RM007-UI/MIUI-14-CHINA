@@ -42,7 +42,7 @@ The newer device and vendor candidates are at:
 - Android 13-labelled kernel candidate: https://github.com/jandaX/android_kernel_xiaomi_joyeuse
 - Additional Android 13 device-tree/build-context reference: https://github.com/KRY0NiTE/EvolutionX-tiramisu/tree/device
 
-The EvolutionX `device` branch is especially useful because its `BoardConfig.mk` spells out a concrete Android 13-era kernel configuration and toolchain. However, its setup script also performs broad `rm -rf device/xiaomi/*`-style cleanup and clones dependencies for its own build environment; it must be inspected as reference only, not executed in this project.
+The EvolutionX `device` branch is useful as a separate comparison because its `BoardConfig.mk` spells out an Android 13-era kernel configuration and toolchain. Its setup script also performs broad `rm -rf device/xiaomi/*`-style cleanup and clones dependencies for its own build environment; inspect it as reference only, do not execute it in this project. A better filename-level match for the `nekoshirro` tree was found in `ArrowOS-Devices/android_kernel_xiaomi_sm6250` branch `arrow-13.0`, which has root-level `cust_defconfig`, but the kernel is reported as 4.14.304 rather than the separate EvolutionX reference's 4.14.315.
 
 Further inspection of `aosp_joyeuse.mk` and `AndroidProducts.mk` confirms that this Android 13-era tree defines an **AOSP** product (`aosp_joyeuse`) and inherits `vendor/aosp/config/common_full_phone.mk`; it is not a ready-made MIUI ROM target. Its `device.mk` includes many hardware-specific components (camera, audio, display, radio, fingerprint, GNSS and vendor interfaces) that need to match the selected Android/vendor baseline. Commit history includes MIUI Camera configuration work, but that does not turn the whole tree into a MIUI system port.
 
@@ -56,7 +56,7 @@ The recent `joyeuse` device/vendor trees provide a better lead for further sourc
 
 ## Next safe research steps
 
-1. Resolve the Android 13 kernel-config mismatch using the exact reference now identified: the EvolutionX device tree expects `arch/arm64/configs/vendor/xiaomi/miatoll_defconfig`, kernel version `4.14.315`, and clang `alchemist`; compare these against the selected kernel branch and its manifest. The checked `Tanya` branch does not expose that exact config path. Do not simply rename or substitute a config.
+1. Perform a static comparison of the stronger `ArrowOS-Devices/android_kernel_xiaomi_sm6250` `arrow-13.0` candidate against `nekoshirro/device_xiaomi_joyeuse` `13-FBEv1`. The kernel contains the requested root-level `cust_defconfig` and reports Linux `4.14.304`, but this is not enough to establish a matching build. Check source dates, kernel config options, compiler assumptions, and the matching manifest before any build attempt. Do not rename configs or mix this with the separate EvolutionX `miatoll_defconfig` layout.
 2. Inspect Android 13 device-tree and vendor dependencies, proprietary blob baseline and compatibility-matrix declarations.
 3. Compare the source ROM's Android 13 framework/vendor interfaces against the selected target device/vendor baseline; do not assume the Xiaomi 12's proprietary components are reusable.
 4. Record target partition/boot configuration from public source metadata, without issuing commands to the user's phone.
