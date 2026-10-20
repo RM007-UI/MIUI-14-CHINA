@@ -64,6 +64,18 @@ The matching `nekoshirro/vendor_xiaomi_joyeuse` branch `13` contains generated v
 
 This strengthens the target-side research baseline, but a key gap remains: no matching repo manifest or build record has yet proved that the exact `13-FBEv1` device tree, vendor branch `13`, and ArrowOS kernel branch `arrow-13.0` were built and tested together. Their labels are not proof of a coherent tested stack.
 
+### Kernel dependency located: prebuilt kernel for `Bianca-13`
+
+The previously missing repository has now been identified: [`nekoshirro/device_xiaomi_joyeuse-kernel`](https://github.com/nekoshirro/device_xiaomi_joyeuse-kernel), branch `Maverick`, head commit `60c8b0bf7ff4ce5e1d803ccb8eb04571ff9d6ba7` (2023-05-18). Its `BoardConfig.mk` points to prebuilt `Image` and `dtb.img`; its `device.mk` packages that Image as the kernel and supplies vendor kernel headers. The device tree's `Bianca-13` branch explicitly inherits this project's `BoardConfig.mk` and `device.mk`, so this is a real declared dependency for that branch—not merely a guessed repo name.
+
+Important limits:
+- This kernel repository contains prebuilt binary artifacts rather than the full source/configuration needed to independently rebuild and inspect the kernel. We have not established the exact source commit, defconfig, signing-key compatibility, or runtime test result for the binary.
+- This pairing applies to `Bianca-13`; it does **not** establish a kernel pairing for `13-FBEv1`, whose BoardConfig directly names `kernel/xiaomi/sm6250` and `cust_defconfig`.
+- The separate prebuilt repository's latest visible commit is from May 2023, while the vendor/device tree snapshots were last updated in August 2023. Dates alone neither prove incompatibility nor prove a successful integrated build.
+- The Pixel 6 build fingerprint in `Bianca-13/joyeuse.mk` remains an unresolved provenance/configuration warning. It is not proof that the final build was tested on joyeuse.
+
+This narrows the search but does not yet supply a complete, reproducible manifest tying a specific source ROM, device tree, vendor snapshot, kernel binary/source and firmware baseline into a verified build.
+
 ### Additional branch-history finding: similarly named branches are not interchangeable
 
 A second branch audit exposed a trap worth recording. The device tree's `Bianca-13` branch has the same `cust_defconfig` and `kernel/xiaomi/sm6250` declarations, but its `BoardConfig.mk` and `joyeuse.mk` inherit a separate `device/xiaomi/joyeuse-kernel` prebuilt-kernel project. That path is not present inside the inspected `device_xiaomi_joyeuse` repository itself, so the kernel dependency must be found and pinned independently. The same product file carries a Google Pixel 6 `raven` Android 12 build description/fingerprint. That is a strong sign this branch's product identity/config was adapted from another base and it must not be treated as proof of a clean, tested Android 13 kernel pairing.
