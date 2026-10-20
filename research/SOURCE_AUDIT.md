@@ -64,6 +64,12 @@ The matching `nekoshirro/vendor_xiaomi_joyeuse` branch `13` contains generated v
 
 This strengthens the target-side research baseline, but a key gap remains: no matching repo manifest or build record has yet proved that the exact `13-FBEv1` device tree, vendor branch `13`, and ArrowOS kernel branch `arrow-13.0` were built and tested together. Their labels are not proof of a coherent tested stack.
 
+### Search for reproducible Android 13 build evidence
+
+Checked the GitHub Actions runs and GitHub Releases endpoints for the inspected Android 13 device-tree, vendor, and kernel candidates; the queried endpoints returned no public workflow runs or releases for those repositories. A targeted public GitHub commit search for an explicit `joyeuse` + `MIUI 14` + `Android 13` combination also returned no matching commits.
+
+This does **not** prove that nobody has ever built a ROM locally or through another CI system. It means the public evidence currently found is insufficient to claim a reproducible Android 13 build for the exact proposed component set, and there is no located public CI artifact we can responsibly use as a known-good baseline. Some newer commits in the broader `nekoshirro` repository family include later Android/QSSI integration fixes, which further reinforces that branches and build generations must not be mixed casually.
+
 ### Re-check of the Android 13 candidate set and reproducibility gap
 
 A more precise cross-check of the older Android 13 candidate confirms:
