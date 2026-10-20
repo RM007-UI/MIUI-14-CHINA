@@ -18,7 +18,7 @@ The project has therefore pivoted to the safer and more realistic path:
 ## Important new research findings
 
 - Xiaomi officially released Joyeuse MIUI 14 Global `V14.0.3.0.SJZMIXM`, based on Android 12. This is a target-device reference, not the China build itself.
-- Community archives list MIUI 14 China Android 13 ports for Joyeuse/Miatoll, including a recent Joyeuse-only `V14.0.10.0.TLCCNXM) post. That post reports bugs (including missing Setup Wizard and NFC); its claims are not independently verified here. Treat it as an upstream reference, not a proven daily-driver recommendation.
+- A community archive lists Joyeuse-only MIUI 14 China Android 13 `V14.0.10.0.TLCCNXM`, dated 2026-10-16, and reports missing Setup Wizard and NFC. GitHub Actions downloaded the 3.84 GB archive to a temporary runner and audited its ZIP inventory and installer script; it was not extracted or flashed. The installer accepts `curtana`, `joyeuse`, and `miatoll`, and prints a target string for an Android 12 Global build, so its target metadata needs further verification. See [`research/COMMUNITY_PORT_AUDIT.md`](research/COMMUNITY_PORT_AUDIT.md).
 - The Xiaomi 12 source package metadata audit is recorded in [`research/CUPID_PAYLOAD_AUDIT.md`](research/CUPID_PAYLOAD_AUDIT.md).
 - The recommended porting and verification gates are recorded in [`research/PORT_STRATEGY.md`](research/PORT_STRATEGY.md).
 
@@ -26,13 +26,14 @@ The project has therefore pivoted to the safer and more realistic path:
 
 - [Inspect Joyeuse MIUI 14 base](https://github.com/RM007-UI/MIUI-14-CHINA/actions/workflows/inspect-joyeuse-base.yml)
 - [Inspect Xiaomi 12 cupid source](https://github.com/RM007-UI/MIUI-14-CHINA/actions/workflows/inspect-cupid-source.yml)
+- [Audit existing Joyeuse-only MIUI China port](https://github.com/RM007-UI/MIUI-14-CHINA/actions/workflows/audit-existing-joyeuse-port.yml)
 - [All workflow runs](https://github.com/RM007-UI/MIUI-14-CHINA/actions)
 
 The Joyeuse workflow reads package metadata and payload declarations through HTTP byte ranges; it is not a ROM builder. Check its latest run before relying on any output.
 
 ## Build constraints
 
-A full Android build requires a suitable, measured Linux x86_64 host and a reproducible set of platform, device-tree, vendor, kernel, firmware, and toolchain revisions. The current GitHub Actions runner is suitable for short metadata checks, not a full Android source build. No connected build host is available in this session.
+A full Android build requires a suitable, measured Linux x86_64 host and a reproducible set of platform, device-tree, vendor, kernel, firmware, and toolchain revisions. The current GitHub Actions runner is suitable for archive inspection, scripts, and small validation tasks, not a full Android source build. The GitHub-only approach is documented in [`research/GITHUB_ONLY_PATH.md`](research/GITHUB_ONLY_PATH.md). No connected build host is available in this session.
 
 ## Safety boundaries
 
