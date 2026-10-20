@@ -16,6 +16,19 @@ Review date: 2026-10-20. This is a source audit, not a build result.
 4. The vendor commit history references Qualcomm QSSI 13 radio components and a telephony import from `SURYAGlobal_V14.0.1.0.SJGMIXM`. This is provenance evidence for selected blobs, not proof that every blob matches the proposed MIUI 14 China framework.
 5. The device tree includes a broad Joyeuse-specific hardware configuration and a large VINTF manifest. No public reproducible build record for the exact proposed MIUI 14 `cupid` to Joyeuse combination was found in this search.
 
+
+## Additional provenance and integration checks
+
+- The device tree's `proprietary-files.txt` explicitly says its unpinned blobs originate from `joyeuse-qssi-user-11-RKQ1.200826.002-V12.5.4.0.RJZIDXM-release-keys` (Android 11 / MIUI 12.5-era baseline). The vendor repository's later commits update selected components, including Qualcomm QSSI 13 radio/IMS-related blobs and telephony references, but this is a mixed provenance set, not proof every binary was refreshed for Android 13.
+- The source tree's compatibility matrix is not empty: it declares a limited set of required HIDL interfaces. It still needs to be merged and checked against the final framework and vendor manifests; merely having XML files is not a compatibility test.
+- The device fstab uses logical system/system_ext/product/vendor partitions and AVB options. Its paths and flags are build-source assumptions; they are not a live read of the target phone's actual partition table.
+- The device tree contains both platform-private and vendor SELinux policy, including Xiaomi/Qualcomm-specific domains and property contexts. A MIUI framework introduces additional properties/services and permissions; policy must be audited and built without papering over denials with broad permissive rules.
+- The exact source device ROM's full boot/partition metadata and the target device's live partition map have not been compared. No firmware archive was downloaded and no device was queried.
+
+## Updated risk assessment
+
+Blob provenance and policy integration are now high-priority blockers, alongside the missing pinned manifest/toolchain and framework/VINTF reconciliation. The Android 11 baseline line in the extraction list does not automatically make the tree unusable, because some blobs are separately updated; it does mean we cannot call the entire vendor stack a verified Android 13 baseline without per-component evidence.
+
 ## Decision
 
 Keep this as a research candidate only. Before a build can be called reproducible, identify a compatible manifest and exact toolchain revision, audit the framework/vendor interfaces and blob provenance, and validate the output in an isolated environment. No ROM was built and no live device was accessed.
