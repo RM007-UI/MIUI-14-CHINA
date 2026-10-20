@@ -53,15 +53,22 @@ jobs:
               raise SystemExit("ZIP end-of-central-directory not found.")
           vals = struct.unpack_from("<4s4H2IH", data, eocd)
           entries, cd_size, cd_offset = vals[4], vals[5], vals[6]
+          # ZIP64 stores real sizes/offsets in a separate end record when classic
+          # ZIP fields overflow their 32-bit limits (0xFFFFFFFF / 0xFFFF).
+          z64 = data.rfind(b"PK\\x06\\x06", 0, eocd)
+          if z64 >= 0 and (cd_offset == 0xFFFFFFFF or cd_size == 0xFFFFFFFF or entries == 0xFFFF):
+              z = struct.unpack_from("<4sQ2H2I4Q", data, z64)
+              entries, cd_size, cd_offset = z[7], z[8], z[9]
+              print("ZIP64 end record detected.")
           print(f"Remote package size: {total:,} bytes ({total/1024**3:.2f} GiB)")
           print(f"ZIP entries: {entries}; central-directory size: {cd_size:,} bytes; offset: {cd_offset:,}")
           with open("zipmeta.env", "w") as f:
               f.write(f"CD_OFFSET={cd_offset}\nCD_SIZE={cd_size}\nZIP_ENTRIES={entries}\n")
           PY
           source zipmeta.env
-          # Directory records are usually much smaller than the ROM payload.
-          # Limit this second request to 1 MiB and keep it away from the payload itself.
-          end=$((CD_OFFSET + 1048575))
+          # Fetch only the central directory, not the multi-gigabyte ROM payload.
+          fetch_size=$((CD_SIZE < 1048576 ? CD_SIZE : 1048576))
+          end=$((CD_OFFSET + fetch_size - 1))
           curl --fail --location --silent --show-error --max-time 70 --max-filesize 2000000 \
             --range "$CD_OFFSET-$end" --dump-header cd-headers.txt --output zip-cd.bin "$url"
           python3 - <<'PY'
