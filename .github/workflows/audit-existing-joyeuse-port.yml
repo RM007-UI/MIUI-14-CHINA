@@ -26,7 +26,7 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check gdown
           mkdir -p audit
-          gdown --id 1EiJzXG64lIQ4zy7OYlmtTvF8K4Ocrbkd -O /tmp/joyeuse-miui14-cn.zip
+          gdown 'https://drive.google.com/uc?id=1EiJzXG64lIQ4zy7OYlmtTvF8K4Ocrbkd' -O /tmp/joyeuse-miui14-cn.zip
           test -s /tmp/joyeuse-miui14-cn.zip
           printf 'Archive bytes: ' > audit/community-port-audit.txt
           stat -c '%s' /tmp/joyeuse-miui14-cn.zip >> audit/community-port-audit.txt
