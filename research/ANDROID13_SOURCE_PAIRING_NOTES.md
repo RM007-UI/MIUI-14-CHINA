@@ -29,6 +29,19 @@ Review date: 2026-10-20. This is a source audit, not a build result.
 
 Blob provenance and policy integration are now high-priority blockers, alongside the missing pinned manifest/toolchain and framework/VINTF reconciliation. The Android 11 baseline line in the extraction list does not automatically make the tree unusable, because some blobs are separately updated; it does mean we cannot call the entire vendor stack a verified Android 13 baseline without per-component evidence.
 
+
+## MIUI source-side comparison status
+
+The pinned XiaomiFirmwareUpdater archive index identifies the proposed source package as Xiaomi 12 China Stable Recovery `V14.0.10.0.TLCCNXM`, Android 13, listed at approximately 5.6 GB (with a separate Fastboot package listed at approximately 7.0 GB). These are archive-index metadata only: the package was not downloaded, hashed, or inspected, so no source-side boot image, dynamic-partition map, AVB metadata, or proprietary framework payload has been verified.
+
+Reference: https://github.com/XiaomiFirmwareUpdater/xiaomifirmwareupdater.github.io/blob/f3fd55eee00004d859cde590e446fabc4e93acc5/pages/miui/full/cupid.md
+
+## Security and test-policy implications
+
+The target device tree's SELinux rules include device-specific permissions and property labels. Any port must reconcile MIUI-added properties, service domains, and vendor interactions against enforcing policy. Broadly disabling SELinux or accepting a test-signed AVB setup is not an acceptable compatibility workaround.
+
+The next source-only milestone is to acquire and inspect source-package metadata in a controlled build workspace, pin all input revisions and compiler provenance, then produce a concrete framework/VINTF/partition compatibility checklist before attempting a build. No target-phone commands, partition reads/writes, downloads of the large ROM, or flashing occurred during this review.
+
 ## Decision
 
 Keep this as a research candidate only. Before a build can be called reproducible, identify a compatible manifest and exact toolchain revision, audit the framework/vendor interfaces and blob provenance, and validate the output in an isolated environment. No ROM was built and no live device was accessed.
