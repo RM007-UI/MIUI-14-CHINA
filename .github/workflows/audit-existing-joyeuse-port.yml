@@ -1,0 +1,69 @@
+name: Audit existing Joyeuse-only MIUI 14 China port
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/audit-existing-joyeuse-port.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit-port-archive:
+    name: Download and inspect archive metadata only
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Download public archive for private-runner inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check gdown
+          mkdir -p audit
+          gdown --id 1EiJzXG64lIQ4zy7OYlmtTvF8K4Ocrbkd -O /tmp/joyeuse-miui14-cn.zip
+          test -s /tmp/joyeuse-miui14-cn.zip
+          printf 'Archive bytes: ' > audit/community-port-audit.txt
+          stat -c '%s' /tmp/joyeuse-miui14-cn.zip >> audit/community-port-audit.txt
+          printf 'SHA-256: ' >> audit/community-port-audit.txt
+          sha256sum /tmp/joyeuse-miui14-cn.zip | awk '{print $1}' >> audit/community-port-audit.txt
+          printf '\nZIP inventory (names and declared sizes only):\n' >> audit/community-port-audit.txt
+          zipinfo -l /tmp/joyeuse-miui14-cn.zip >> audit/community-port-audit.txt
+          printf '\nInstaller and device-assert references (if present):\n' >> audit/community-port-audit.txt
+          python - <<'PY' >> audit/community-port-audit.txt
+          import zipfile
+          p = "/tmp/joyeuse-miui14-cn.zip"
+          with zipfile.ZipFile(p) as z:
+              names = z.namelist()
+              print("ZIP entries:", len(names))
+              for n in names:
+                  low = n.lower()
+                  if any(k in low for k in ("updater-script", "update-binary", "metadata", "payload", "android-info", "dynamic_partitions")):
+                      info = z.getinfo(n)
+                      print(f"{n}\t{info.file_size} bytes")
+              scripts = [n for n in names if n.lower().endswith("updater-script")]
+              for n in scripts[:3]:
+                  print(f"--- {n} ---")
+                  try:
+                      s = z.read(n).decode("utf-8", "replace")
+                      for line in s.splitlines():
+                          if any(k in line.lower() for k in ("assert", "joyeuse", "miatoll", "block_image", "package_extract_file", "write_raw_image", "format(", "delete_recursive")):
+                              print(line[:500])
+                  except Exception as e:
+                      print("Could not read script:", type(e).__name__)
+          PY
+          echo "Audit completed. The ROM archive itself is not published or uploaded as an artifact."
+          rm -f /tmp/joyeuse-miui14-cn.zip
+
+      - name: Upload text audit only
+        uses: actions/upload-artifact@v4
+        with:
+          name: joyeuse-community-port-audit
+          path: audit/community-port-audit.txt
+          if-no-files-found: error
+          retention-days: 14
