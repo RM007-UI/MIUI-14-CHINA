@@ -64,6 +64,15 @@ The matching `nekoshirro/vendor_xiaomi_joyeuse` branch `13` contains generated v
 
 This strengthens the target-side research baseline, but a key gap remains: no matching repo manifest or build record has yet proved that the exact `13-FBEv1` device tree, vendor branch `13`, and ArrowOS kernel branch `arrow-13.0` were built and tested together. Their labels are not proof of a coherent tested stack.
 
+### Re-check of the Android 13 candidate set and reproducibility gap
+
+A more precise cross-check of the older Android 13 candidate confirms:
+- `nekoshirro/device_xiaomi_joyeuse` branch `13-FBEv1` points to source kernel path `kernel/xiaomi/sm6250`, config `cust_defconfig`, and clang toolchain label `alchemist`; inspected branch head is `7bedf8a993c58b7743aebd49dfc5e3a7bfa9242f` (2023-06-26).
+- `ArrowOS-Devices/android_kernel_xiaomi_sm6250` branch `arrow-13.0` has `arch/arm64/configs/cust_defconfig` and labels its local version as a Qualcomm QSSI 13 / SM6250 kernel family; inspected head is `a8dc7bc9a34a090eccfc4d8d5c53c694d0f85186`.
+- `nekoshirro/vendor_xiaomi_joyeuse` branch `13` exists and includes generated vendor build definitions and proprietary blobs.
+
+These facts make the ArrowOS kernel a **plausible candidate by path and Android-generation clues**, not a proven matching kernel. The inspected sources do not establish an immutable manifest tying these exact device-tree, vendor, kernel, common-device/vendor and firmware revisions into one tested Android 13 build. The product makefile also represents an AOSP-derived product rather than MIUI. No claim is made that these parts build together, boot, or work with the `cupid` MIUI 14 framework. Keep all components as separate audit candidates until a source manifest/build log or other reproducible evidence is found.
+
 ### Newer AOSP-joyeuse source set: coherent project family, but not an Android 13 MIUI baseline
 
 The newer `AOSP-joyeuse` organization exposes matching project-family repositories for device tree, SM6250 common device tree, Joyeuse vendor blobs, common vendor blobs, and kernel source, all on branch `bka`:
