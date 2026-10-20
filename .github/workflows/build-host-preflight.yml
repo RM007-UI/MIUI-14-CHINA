@@ -1,0 +1,39 @@
+name: Build host capacity preflight
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/build-host-preflight.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-runner:
+    name: Measure hosted runner before any ROM download
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report runner capacity and stop if unsuitable
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== CPU ==="
+          nproc
+          lscpu | grep -E '^(Architecture|CPU\(s\)|Model name):' || true
+          echo "=== RAM ==="
+          free -h
+          echo "=== Filesystems ==="
+          df -hT
+          echo "=== Workspace ==="
+          du -sh "$GITHUB_WORKSPACE" || true
+          mem_kb="$(awk '/MemTotal:/ {print $2}' /proc/meminfo)"
+          avail_kb="$(df -Pk "$GITHUB_WORKSPACE" | awk 'NR==2 {print $4}')"
+          echo "RAM total: $((mem_kb / 1024 / 1024)) GiB"
+          echo "Workspace filesystem free: $((avail_kb / 1024 / 1024)) GiB"
+          if [ "$mem_kb" -lt 60000000 ] || [ "$avail_kb" -lt 300000000 ]; then
+            echo "::warning::Hosted runner is below the conservative AOSP build-host baseline. No ROM was downloaded and no build was started."
+          else
+            echo "Capacity meets the conservative RAM/free-space preflight threshold; this alone does not establish source or toolchain compatibility."
+          fi
