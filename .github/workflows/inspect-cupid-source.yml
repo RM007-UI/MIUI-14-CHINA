@@ -16,7 +16,7 @@ permissions:
 jobs:
   inspect-source:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - name: Check runner and source package headers
         shell: bash
@@ -26,67 +26,80 @@ jobs:
           df -hT "$RUNNER_TEMP"
           url="https://bigota.d.miui.com/V14.0.10.0.TLCCNXM/miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
           echo "Checking remote headers (no full ROM download):"
-          curl --fail --location --silent --show-error --max-time 45 --head "$url" | grep -iE '^(HTTP/|content-length:|content-range:|accept-ranges:|etag:|last-modified:)' || true
+          curl --fail --location --silent --show-error --max-time 30 --head "$url" | grep -iE '^(HTTP/|content-length:|content-range:|accept-ranges:|etag:|last-modified:)' || true
 
-      - name: Fetch only ZIP directory tail using HTTP range
+      - name: Read ZIP directory using two small HTTP ranges
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
           url="https://bigota.d.miui.com/V14.0.10.0.TLCCNXM/miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
-          # A suffix range lets us inspect the ZIP central directory without pulling 5.6 GB.
-          # --max-filesize prevents a server that ignores Range from downloading the whole ROM.
-          curl --fail --location --silent --show-error --max-time 300 --max-filesize 5000000 \
-            --retry 2 --retry-delay 2 --range -4194304 \
-            --dump-header range-headers.txt --output zip-tail.bin "$url"
-          echo "Range response headers:"
-          grep -iE '^(HTTP/|content-length:|content-range:|accept-ranges:|etag:)' range-headers.txt || true
+          # First fetch only the last 1 MiB to read ZIP's directory offset, then fetch
+          # the first 1 MiB of the directory. Never fetch the full 5.2 GiB ROM.
+          curl --fail --location --silent --show-error --max-time 70 --max-filesize 2000000 \
+            --range -1048576 --dump-header tail-headers.txt --output zip-tail.bin "$url"
           python3 - <<'PY'
-          import os, re, struct
+          import re, struct
           data = open("zip-tail.bin", "rb").read()
-          headers = open("range-headers.txt", errors="replace").read()
+          headers = open("tail-headers.txt", errors="replace").read()
           matches = re.findall(r"(?im)^content-range:\s*bytes\s+(\d+)-(\d+)/(\d+)", headers)
           if not matches:
-              raise SystemExit("Server did not return a valid Content-Range; refusing to assume this is a partial response.")
+              raise SystemExit("No Content-Range from server; refusing to continue.")
           start, end, total = map(int, matches[-1])
           if len(data) != end - start + 1:
-              raise SystemExit(f"Range length mismatch: downloaded {len(data)}, expected {end-start+1}.")
-          print(f"Remote package size: {total:,} bytes ({total/1024**3:.2f} GiB)")
-          print(f"Downloaded only: {len(data):,} bytes ({len(data)/1024**2:.2f} MiB)")
-          sig = b"PK\x05\x06"
-          eocd = data.rfind(sig)
+              raise SystemExit("Tail range length mismatch.")
+          eocd = data.rfind(b"PK\x05\x06")
           if eocd < 0 or eocd + 22 > len(data):
-              raise SystemExit("ZIP end-of-central-directory not found in the downloaded tail.")
+              raise SystemExit("ZIP end-of-central-directory not found.")
           vals = struct.unpack_from("<4s4H2IH", data, eocd)
-          entries = vals[4]
-          cd_size, cd_offset = vals[5], vals[6]
-          cd_start_in_tail = cd_offset - start
-          if cd_start_in_tail < 0 or cd_start_in_tail + cd_size > len(data):
-              raise SystemExit("ZIP central directory does not fit in the downloaded range; increase the range size to 4 MiB if needed.")
-          print(f"ZIP central-directory entries: {entries}")
-          print("Top-level paths:")
-          roots = set()
-          selected = []
-          pos = cd_start_in_tail
-          stop = cd_start_in_tail + cd_size
-          for _ in range(entries):
-              if pos + 46 > stop or data[pos:pos+4] != b"PK\x01\x02":
-                  raise SystemExit(f"Invalid central directory record at offset {pos}.")
+          entries, cd_size, cd_offset = vals[4], vals[5], vals[6]
+          print(f"Remote package size: {total:,} bytes ({total/1024**3:.2f} GiB)")
+          print(f"ZIP entries: {entries}; central-directory size: {cd_size:,} bytes; offset: {cd_offset:,}")
+          with open("zipmeta.env", "w") as f:
+              f.write(f"CD_OFFSET={cd_offset}\nCD_SIZE={cd_size}\nZIP_ENTRIES={entries}\n")
+          PY
+          source zipmeta.env
+          # Directory records are usually much smaller than the ROM payload.
+          # Limit this second request to 1 MiB and keep it away from the payload itself.
+          end=$((CD_OFFSET + 1048575))
+          curl --fail --location --silent --show-error --max-time 70 --max-filesize 2000000 \
+            --range "$CD_OFFSET-$end" --dump-header cd-headers.txt --output zip-cd.bin "$url"
+          python3 - <<'PY'
+          import os, re, struct
+          data = open("zip-cd.bin", "rb").read()
+          headers = open("cd-headers.txt", errors="replace").read()
+          matches = re.findall(r"(?im)^content-range:\s*bytes\s+(\d+)-(\d+)/(\d+)", headers)
+          if not matches:
+              raise SystemExit("Central-directory request was not a valid range response.")
+          start, end, total = map(int, matches[-1])
+          if len(data) != end - start + 1:
+              raise SystemExit("Central-directory range length mismatch.")
+          print(f"Fetched central-directory segment: {len(data):,} bytes; full directory is {os.environ.get('CD_SIZE', 'reported above')} bytes.")
+          roots, selected = set(), []
+          pos = 0
+          count = 0
+          while pos + 46 <= len(data) and data[pos:pos+4] == b"PK\x01\x02":
               v = struct.unpack_from("<4s6H3I5H2I", data, pos)
               fn_len, ex_len, cm_len = v[10], v[11], v[12]
+              record_end = pos + 46 + fn_len + ex_len + cm_len
+              if record_end > len(data):
+                  break
               name = data[pos+46:pos+46+fn_len].decode("utf-8", "replace")
               csize, usize, local_offset = v[8], v[9], v[16]
+              count += 1
               if name:
                   roots.add(name.split("/", 1)[0])
               low = name.lower()
-              if any(k in low for k in ("payload.bin", "metadata", "android-info", "boot.img", "vendor.img", "super.img", "firmware-update", "updater-script", "update-binary", "compatibility.zip")):
+              if any(k in low for k in ("payload.bin", "metadata", "android-info", "boot.img", "vendor.img", "super.img", "firmware-update", "updater-script", "update-binary", "compatibility.zip", "cust.img", "product.img", "system.img", "vbmeta.img")):
                   selected.append((name, csize, usize, local_offset))
-              pos += 46 + fn_len + ex_len + cm_len
-          for x in sorted(roots):
-              print(" -", x)
-          print("Key entries (compressed / uncompressed / local offset):")
+              pos = record_end
+          print(f"Parsed {count} central-directory records from the first segment.")
+          print("Top-level paths observed:")
+          for root in sorted(roots):
+              print(" -", root)
+          print("Relevant entries (compressed / uncompressed / local offset):")
           for name, csize, usize, offset in selected:
               print(f" - {name}: {csize:,} / {usize:,} / {offset:,}")
           if not selected:
-              print("No entries matched the initial partition/payload keyword scan; full path inventory was not emitted.")
+              print("Relevant partition/payload names were not in the first 1 MiB of directory; ROM body was not downloaded.")
           PY
