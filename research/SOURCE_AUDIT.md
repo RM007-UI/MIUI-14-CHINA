@@ -29,9 +29,11 @@ These candidates were checked through public GitHub repository metadata and rece
 
 | Component | Candidate | Observed evidence | Assessment |
 |---|---|---|---|
-| Device tree | https://github.com/nekoshirro/device_xiaomi_joyeuse | Default branch `16-los`; latest commit observed 2025-12-03; target-specific `joyeuse` changes | Most promising recent device-tree lead, but its Android 16-oriented branch is not automatically a suitable Android 13 base. Inspect branches and build configuration before selecting it. |
-| Vendor blobs | https://github.com/nekoshirro/vendor_xiaomi_joyeuse | Default branch `16`; commits observed 2025-12-03, including camera and vendor compatibility changes | Active-looking target-specific vendor tree, but branch level differs from the Android 13 source ROM. Do not mix blindly across Android releases. |
-| Kernel | https://github.com/jandaX/android_kernel_xiaomi_joyeuse | Repository description says “A13 kernel”; default branch `Tanya`; latest commit observed 2023-05-18 | Android 13-era candidate, but old. Its kernel config, toolchain, required modules and compatibility with the chosen device/vendor tree remain unverified. |
+| Device tree (Android 13 branch) | https://github.com/nekoshirro/device_xiaomi_joyeuse/tree/13-FBEv1 | Branch `13-FBEv1`; latest observed commit 2023-08-28; `BoardConfig.mk` declares device `joyeuse`, boot header v2, dynamic partitions and kernel source path `kernel/xiaomi/sm6250` | Relevant Android 13-era candidate with device-specific configuration. The source tree is not a MIUI port and still needs build-context and dependency verification. |
+| Vendor blobs (Android 13 branch) | https://github.com/nekoshirro/vendor_xiaomi_joyeuse/tree/13 | Branch `13`; latest observed commit 2023-08-28; target-specific vendor blob makefiles | Version label aligns with the Android 13 device-tree branch, but alignment of branch labels alone does not prove complete compatibility. |
+| Kernel | https://github.com/jandaX/android_kernel_xiaomi_joyeuse/tree/Tanya | Repository description says “A13 kernel”; default branch `Tanya`; latest observed commit on this branch 2023-05-18; includes `joyeuse_defconfig` | Candidate kernel is Android 13-era, but the device tree branch specifies `cust_defconfig`, which was not found at `arch/arm64/configs/cust_defconfig` in this kernel branch. This is a concrete integration mismatch; do not treat this trio as build-ready. |
+| Newer default branches | https://github.com/nekoshirro/device_xiaomi_joyeuse/tree/16-los and https://github.com/nekoshirro/vendor_xiaomi_joyeuse/tree/16 | Recent commits observed in December 2025; branches target a newer Android generation | Useful as a future reference, not directly interchangeable with the Android 13 source ROM. |
+| Older device/vendor snapshot | https://github.com/AOSP-joyeuse/platform_device_xiaomi_joyeuse and https://github.com/AOSP-joyeuse/platform_vendor_xiaomi_joyeuse | Last observed commits in October 2022 | Useful as historical reference only; not a modern base.
 | Older device/vendor snapshot | https://github.com/AOSP-joyeuse/platform_device_xiaomi_joyeuse and https://github.com/AOSP-joyeuse/platform_vendor_xiaomi_joyeuse | Last observed commits in October 2022 | Useful as historical reference only; not a modern base. |
 
 The newer device and vendor candidates are at:
@@ -49,10 +51,10 @@ The recent `joyeuse` device/vendor trees provide a better lead for further sourc
 
 ## Next safe research steps
 
-1. Inspect the candidate device tree's Android makefiles, `BoardConfig.mk`, dependencies and branch history.
-2. Inspect vendor branch dependencies and the kernel's defconfig/toolchain assumptions; compare their Android generation and interfaces.
-3. Record target Android/vendor API level and partition/boot configuration from public source metadata, without issuing commands to the user's phone.
-4. Build a compatibility matrix and decide whether the source set is coherent before attempting any compile.
+1. Resolve the Android 13 kernel-config mismatch: locate a kernel branch containing the expected `cust_defconfig`, or identify the exact intended device-tree/kernel pairing from public history.
+2. Inspect Android 13 device-tree and vendor dependencies, proprietary blob baseline and compatibility-matrix declarations.
+3. Compare the source ROM's Android 13 framework/vendor interfaces against the selected target device/vendor baseline; do not assume the Xiaomi 12's proprietary components are reusable.
+4. Record target partition/boot configuration from public source metadata, without issuing commands to the user's phone.
 5. Keep CI limited to static checks until a documented and reproducible build strategy exists. Do not generate flashable artifacts or run `adb`/`fastboot` in CI.
 
 ## Explicitly not done
