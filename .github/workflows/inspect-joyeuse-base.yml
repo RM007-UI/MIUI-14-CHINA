@@ -1,0 +1,188 @@
+name: Inspect official Joyeuse MIUI 14 base
+
+concurrency:
+  group: inspect-joyeuse-base
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/inspect-joyeuse-base.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check runner and source package headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          free -h
+          df -hT "$RUNNER_TEMP"
+          url="https://bigota.d.miui.com/V14.0.3.0.SJZMIXM/miui_JOYEUSEGlobal_V14.0.3.0.SJZMIXM_df17e3fabf_12.0.zip"
+          echo "Checking remote headers (no full ROM download):"
+          curl --fail --location --silent --show-error --max-time 30 --head "$url" | grep -iE '^(HTTP/|content-length:|content-range:|accept-ranges:|etag:|last-modified:)' || true
+
+      - name: Read ZIP directory and OTA partition manifest with small HTTP ranges
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          url="https://bigota.d.miui.com/V14.0.3.0.SJZMIXM/miui_JOYEUSEGlobal_V14.0.3.0.SJZMIXM_df17e3fabf_12.0.zip"
+          curl --fail --location --silent --show-error --max-time 70 --max-filesize 2000000 \
+            --range -1048576 --dump-header tail-headers.txt --output zip-tail.bin "$url"
+          python3 - <<'PY'
+          import re, struct
+          data = open("zip-tail.bin", "rb").read()
+          headers = open("tail-headers.txt", errors="replace").read()
+          matches = re.findall(r"(?im)^content-range:\s*bytes\s+(\d+)-(\d+)/(\d+)", headers)
+          if not matches:
+              raise SystemExit("No Content-Range from server; refusing to continue.")
+          start, end, total = map(int, matches[-1])
+          if len(data) != end - start + 1:
+              raise SystemExit("Tail range length mismatch.")
+          eocd = data.rfind(b"PK\x05\x06")
+          if eocd < 0 or eocd + 22 > len(data):
+              raise SystemExit("ZIP end-of-central-directory not found.")
+          vals = struct.unpack_from("<4s4H2IH", data, eocd)
+          entries, cd_size, cd_offset = vals[4], vals[5], vals[6]
+          z64 = data.rfind(b"PK\x06\x06", 0, eocd)
+          if z64 >= 0 and (cd_offset == 0xFFFFFFFF or cd_size == 0xFFFFFFFF or entries == 0xFFFF):
+              z = struct.unpack_from("<4sQ2H2I4Q", data, z64)
+              entries, cd_size, cd_offset = z[7], z[8], z[9]
+              print("ZIP64 end record detected.")
+          print(f"Remote package size: {total:,} bytes ({total/1024**3:.2f} GiB)")
+          print(f"ZIP entries: {entries}; central-directory size: {cd_size:,} bytes; offset: {cd_offset:,}")
+          with open("zipmeta.env", "w") as f:
+              f.write(f"CD_OFFSET={cd_offset}\nCD_SIZE={cd_size}\nZIP_ENTRIES={entries}\n")
+          PY
+          source zipmeta.env
+          end=$((CD_OFFSET + CD_SIZE - 1))
+          curl --fail --location --silent --show-error --max-time 70 --max-filesize 2000000 \
+            --range "$CD_OFFSET-$end" --dump-header cd-headers.txt --output zip-cd.bin "$url"
+          curl --fail --location --silent --show-error --max-time 70 --max-filesize 2000000 \
+            --range "0-1048575" --dump-header head-headers.txt --output zip-head.bin "$url"
+          python3 - <<'PY'
+          import re, struct, zlib
+          head = open("zip-head.bin", "rb").read()
+          cd = open("zip-cd.bin", "rb").read()
+          headers = open("cd-headers.txt", errors="replace").read()
+          matches = re.findall(r"(?im)^content-range:\s*bytes\s+(\d+)-(\d+)/(\d+)", headers)
+          if not matches:
+              raise SystemExit("Central-directory request was not a valid range response.")
+          start, end, total = map(int, matches[-1])
+          if len(cd) != end - start + 1:
+              raise SystemExit("Central-directory range length mismatch.")
+          records, pos = [], 0
+          while pos + 46 <= len(cd) and cd[pos:pos+4] == b"PK\x01\x02":
+              v = struct.unpack_from("<4s6H3I5H2I", cd, pos)
+              fn_len, ex_len, cm_len = v[10], v[11], v[12]
+              name = cd[pos+46:pos+46+fn_len].decode("utf-8", "replace")
+              extra = cd[pos+46+fn_len:pos+46+fn_len+ex_len]
+              csize, usize, local_offset, method = v[8], v[9], v[16], v[4]
+              ep = 0
+              while ep + 4 <= len(extra):
+                  etype, elen = struct.unpack_from("<HH", extra, ep)
+                  value = extra[ep+4:ep+4+elen]
+                  if etype == 1:
+                      vp = 0
+                      if usize == 0xFFFFFFFF:
+                          usize = struct.unpack_from("<Q", value, vp)[0]; vp += 8
+                      if csize == 0xFFFFFFFF:
+                          csize = struct.unpack_from("<Q", value, vp)[0]; vp += 8
+                      if local_offset == 0xFFFFFFFF:
+                          local_offset = struct.unpack_from("<Q", value, vp)[0]; vp += 8
+                  ep += 4 + elen
+              records.append((name, csize, usize, local_offset, method))
+              pos += 46 + fn_len + ex_len + cm_len
+          print(f"ZIP entries parsed: {len(records)}")
+          def extract(name):
+              rec = next((x for x in records if x[0] == name), None)
+              if not rec:
+                  return None
+              _, csize, usize, offset, method = rec
+              if offset + 30 > len(head):
+                  return None
+              h = struct.unpack_from("<4s5H3I2H", head, offset)
+              start = offset + 30 + h[9] + h[10]
+              raw = head[start:start+csize]
+              if len(raw) != csize:
+                  return None
+              if method == 8:
+                  raw = zlib.decompress(raw, -15)
+              elif method != 0:
+                  raise SystemExit(f"Unsupported ZIP compression method {method} for {name}")
+              if len(raw) != usize:
+                  raise SystemExit(f"Uncompressed size mismatch for {name}: {len(raw)} vs {usize}")
+              return raw
+          metadata = extract("META-INF/com/android/metadata")
+          print("\n--- OTA metadata ---")
+          print(metadata.decode("utf-8", "replace") if metadata else "Not available in first MiB.")
+          payload_rec = next((x for x in records if x[0] == "payload.bin"), None)
+          if not payload_rec:
+              raise SystemExit("payload.bin not found in ZIP directory.")
+          _, csize, usize, offset, method = payload_rec
+          h = struct.unpack_from("<4s5H3I2H", head, offset)
+          payload_start = offset + 30 + h[9] + h[10]
+          payload = head[payload_start:]
+          if payload[:4] != b"CrAU":
+              raise SystemExit("payload.bin magic is not CrAU.")
+          major = int.from_bytes(payload[4:12], "big")
+          manifest_size = int.from_bytes(payload[12:20], "big")
+          signature_size = int.from_bytes(payload[20:24], "big") if major >= 2 else 0
+          manifest_start = 24 if major >= 2 else 20
+          print(f"Payload header: major={major}, manifest_size={manifest_size:,}, metadata_signature_size={signature_size:,}")
+          if manifest_size > len(payload) - manifest_start:
+              raise SystemExit("Manifest exceeds fetched range; increase range size.")
+          def varint(buf, p):
+              value = shift = 0
+              while p < len(buf):
+                  b = buf[p]; p += 1
+                  value |= (b & 0x7F) << shift
+                  if not b & 0x80:
+                      return value, p
+                  shift += 7
+                  if shift > 70:
+                      raise ValueError("Invalid protobuf varint")
+              raise ValueError("Truncated protobuf varint")
+          def fields(buf):
+              p = 0
+              while p < len(buf):
+                  tag, p = varint(buf, p)
+                  number, wire = tag >> 3, tag & 7
+                  if wire == 0:
+                      value, p = varint(buf, p)
+                  elif wire == 1:
+                      value, p = buf[p:p+8], p+8
+                  elif wire == 2:
+                      n, p = varint(buf, p)
+                      value, p = buf[p:p+n], p+n
+                  elif wire == 5:
+                      value, p = buf[p:p+4], p+4
+                  else:
+                      raise ValueError(f"Unsupported protobuf wire type {wire}")
+                  yield number, wire, value
+          manifest = payload[manifest_start:manifest_start+manifest_size]
+          partitions = []
+          for number, wire, part in fields(manifest):
+              if number == 13 and wire == 2:
+                  pname, psize = "?", None
+                  for pn, pw, pv in fields(part):
+                      if pn == 1 and pw == 2:
+                          pname = pv.decode("utf-8", "replace")
+                      elif pn == 7 and pw == 2:
+                          for qn, qw, qv in fields(pv):
+                              if qn == 1 and qw == 0:
+                                  psize = qv
+                  partitions.append((pname, psize))
+          print("\nOfficial Joyeuse MIUI 14 payload partitions and declared image sizes (metadata only; no flashing):")
+          for pname, psize in partitions:
+              print(f" - {pname}: {psize if psize is not None else 'size unavailable'} bytes")
+          if not partitions:
+              raise SystemExit("No partition records parsed; check OTA protobuf schema.")
+          PY
