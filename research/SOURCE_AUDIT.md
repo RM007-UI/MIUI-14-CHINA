@@ -64,6 +64,18 @@ The matching `nekoshirro/vendor_xiaomi_joyeuse` branch `13` contains generated v
 
 This strengthens the target-side research baseline, but a key gap remains: no matching repo manifest or build record has yet proved that the exact `13-FBEv1` device tree, vendor branch `13`, and ArrowOS kernel branch `arrow-13.0` were built and tested together. Their labels are not proof of a coherent tested stack.
 
+### Newer AOSP-joyeuse source set: coherent project family, but not an Android 13 MIUI baseline
+
+The newer `AOSP-joyeuse` organization exposes matching project-family repositories for device tree, SM6250 common device tree, Joyeuse vendor blobs, common vendor blobs, and kernel source, all on branch `bka`:
+- device tree head `f06c14ed5374664c47b59611f0718d354d7096ef` (2025-12-12)
+- Joyeuse vendor head `a53b109b9133fc8407244b1d0bcfcfcd98493e78` (2025-12-13)
+- kernel head `bd0c53c5a3e98cd3d405b7675b86ac4319ee3c2f` (2025-12-13)
+- common device tree and vendor repositories also exist on `bka`.
+
+This is a stronger candidate for understanding how a later Joyeuse stack is assembled than mixing unrelated forks. However, it remains explicitly marked Working In Progress, the kernel repo itself carries a force-push warning, and the product file identifies a Lineage/Evolution-style Android 12 build fingerprint. Its device tree uses `vendor/xiaomi/miatoll_defconfig`, while the kernel's root config path is not `cust_defconfig`; the exact config is therefore not yet pinned from the inspected paths. This set is **not** evidence of an Android 13 MIUI build and should not be merged into the older `13-FBEv1` stack without a pinned manifest and compatibility audit.
+
+The kernel history also contains a recorded Soong failure caused by duplicate `qti_kernel_headers` module definitions (commit `ec923a7a0101d17f7b03ebe21a4e9087a8edb28f`, 2025-08-27). Later commits may have addressed it, so this is historical evidence of integration issues, not a claim that the current head fails to build.
+
 ### Public build-script audit: useful references, but not a matching Android 13 manifest
 
 The public `nekoshirro/platform_manifest-joyeuse` repository's `evox-q1/evolution.sh` is a build script for Evolution-X/AOSP Android 16, not the requested MIUI 14 Android 13 port. It pins no immutable commit IDs for the cloned device/vendor/kernel repositories (uses shallow clones), so it is not a reproducible source manifest. It clones newer AOSP-joyeuse device/vendor/common repositories and a different kernel repository/branch, which must not be silently substituted for the 2023 `13-FBEv1` + `vendor_xiaomi_joyeuse` snapshots. The script also contains broad destructive cleanup commands and a hard-coded Telegram bot credential. **The script was not executed and the credential is intentionally not reproduced here.** The credential should be treated as exposed and rotated/revoked by its owner; do not use it or contact the bot.
