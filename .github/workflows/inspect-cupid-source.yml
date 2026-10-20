@@ -12,61 +12,77 @@ permissions:
 jobs:
   inspect-source:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 10
     steps:
-      - name: Check available workspace
+      - name: Check runner and source package headers
         shell: bash
         run: |
           set -euo pipefail
-          df -hT "$GITHUB_WORKSPACE"
           free -h
-          echo "This job downloads only the source package for inspection. It does not flash any device or publish the proprietary ROM."
+          df -hT "$RUNNER_TEMP"
+          url="https://bigota.d.miui.com/V14.0.10.0.TLCCNXM/miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
+          echo "Checking remote headers (no full ROM download):"
+          curl --fail --location --silent --show-error --max-time 45 --head "$url" | grep -iE '^(HTTP/|content-length:|content-range:|accept-ranges:|etag:|last-modified:)' || true
 
-      - name: Download and verify official package
+      - name: Fetch only ZIP directory tail using HTTP range
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
           url="https://bigota.d.miui.com/V14.0.10.0.TLCCNXM/miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
-          file="miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
-          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 --output "$file" "$url"
-          echo "Downloaded size:"
-          du -h "$file"
-          echo "Expected MD5: 9aa2f552b35928b0ee352fc6346aa595"
-          actual="$(md5sum "$file" | awk '{print $1}')"
-          echo "Actual MD5:   $actual"
-          test "$actual" = "9aa2f552b35928b0ee352fc6346aa595"
-          echo "Source package checksum verified."
-
-      - name: Inventory package without extracting ROM images
-        shell: bash
-        run: |
-          set -euo pipefail
+          # A suffix range lets us inspect the ZIP central directory without pulling 5.6 GB.
+          # --max-filesize prevents a server that ignores Range from downloading the whole ROM.
+          curl --fail --location --silent --show-error --max-time 180 --max-filesize 9000000 \
+            --retry 2 --retry-delay 2 --range -8388608 \
+            --dump-header range-headers.txt --output zip-tail.bin "$url"
+          echo "Range response headers:"
+          grep -iE '^(HTTP/|content-length:|content-range:|accept-ranges:|etag:)' range-headers.txt || true
           python3 - <<'PY'
-          import zipfile, os
-          path = os.path.join(os.environ["RUNNER_TEMP"], "miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip")
-          with zipfile.ZipFile(path) as z:
-              items = z.infolist()
-              print(f"ZIP entries: {len(items)}")
-              print("Top-level paths:")
-              roots = sorted({i.filename.split("/", 1)[0] for i in items if i.filename})
-              for root in roots:
-                  print(" -", root)
-              print("\nPartition/payload-related entries:")
-              for i in items:
-                  n = i.filename.lower()
-                  if any(k in n for k in ("payload.bin", "metadata", "android-info", "boot.img", "vendor.img", "super.img", "firmware-update", "scatter")):
-                      print(f"{i.file_size:>12}  {i.filename}")
-              print("\nSmall package metadata:")
-              for i in items:
-                  n = i.filename.lower()
-                  if i.file_size <= 128 * 1024 and (n.endswith("/metadata") or n.endswith("android-info.txt") or n.endswith("updater-script")):
-                      try:
-                          data = z.read(i).decode("utf-8", "replace")
-                          print(f"--- {i.filename} ---")
-                          print(data[:12000])
-                      except Exception as e:
-                          print(f"Could not read {i.filename}: {e}")
+          import os, re, struct
+          data = open("zip-tail.bin", "rb").read()
+          headers = open("range-headers.txt", errors="replace").read()
+          matches = re.findall(r"(?im)^content-range:\s*bytes\s+(\d+)-(\d+)/(\d+)", headers)
+          if not matches:
+              raise SystemExit("Server did not return a valid Content-Range; refusing to assume this is a partial response.")
+          start, end, total = map(int, matches[-1])
+          if len(data) != end - start + 1:
+              raise SystemExit(f"Range length mismatch: downloaded {len(data)}, expected {end-start+1}.")
+          print(f"Remote package size: {total:,} bytes ({total/1024**3:.2f} GiB)")
+          print(f"Downloaded only: {len(data):,} bytes ({len(data)/1024**2:.2f} MiB)")
+          sig = b"PK\x05\x06"
+          eocd = data.rfind(sig)
+          if eocd < 0 or eocd + 22 > len(data):
+              raise SystemExit("ZIP end-of-central-directory not found in the downloaded tail.")
+          vals = struct.unpack_from("<4s4H2IH", data, eocd)
+          entries = vals[4]
+          cd_size, cd_offset = vals[5], vals[6]
+          cd_start_in_tail = cd_offset - start
+          if cd_start_in_tail < 0 or cd_start_in_tail + cd_size > len(data):
+              raise SystemExit("ZIP central directory does not fit in the downloaded range; increase the range size.")
+          print(f"ZIP central-directory entries: {entries}")
+          print("Top-level paths:")
+          roots = set()
+          selected = []
+          pos = cd_start_in_tail
+          stop = cd_start_in_tail + cd_size
+          for _ in range(entries):
+              if pos + 46 > stop or data[pos:pos+4] != b"PK\x01\x02":
+                  raise SystemExit(f"Invalid central directory record at offset {pos}.")
+              v = struct.unpack_from("<4s6H3I5H2I", data, pos)
+              fn_len, ex_len, cm_len = v[10], v[11], v[12]
+              name = data[pos+46:pos+46+fn_len].decode("utf-8", "replace")
+              csize, usize, local_offset = v[8], v[9], v[16]
+              if name:
+                  roots.add(name.split("/", 1)[0])
+              low = name.lower()
+              if any(k in low for k in ("payload.bin", "metadata", "android-info", "boot.img", "vendor.img", "super.img", "firmware-update", "updater-script", "update-binary", "compatibility.zip")):
+                  selected.append((name, csize, usize, local_offset))
+              pos += 46 + fn_len + ex_len + cm_len
+          for x in sorted(roots):
+              print(" -", x)
+          print("Key entries (compressed / uncompressed / local offset):")
+          for name, csize, usize, offset in selected:
+              print(f" - {name}: {csize:,} / {usize:,} / {offset:,}")
+          if not selected:
+              print("No entries matched the initial partition/payload keyword scan; full path inventory was not emitted.")
           PY
-          rm -f "$RUNNER_TEMP/miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
-          echo "Inspection finished; source package deleted from the ephemeral runner."
