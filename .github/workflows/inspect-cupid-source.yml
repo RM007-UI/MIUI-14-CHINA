@@ -110,3 +110,124 @@ jobs:
           if not selected:
               print("Relevant partition/payload names were not in the first 1 MiB of directory; ROM body was not downloaded.")
           PY
+
+          # Read only the first MiB of the recovery ZIP. This contains its small
+          # metadata files and the start of payload.bin, not the full ROM image.
+          curl --fail --location --silent --show-error --max-time 70 --max-filesize 2000000 \
+            --range "0-1048575" --dump-header head-headers.txt --output zip-head.bin "$url"
+          python3 - <<'PY'
+          import re, struct, zlib
+          head = open("zip-head.bin", "rb").read()
+          cd = open("zip-cd.bin", "rb").read()
+          records = []
+          pos = 0
+          while pos + 46 <= len(cd) and cd[pos:pos+4] == b"PK\\x01\\x02":
+              v = struct.unpack_from("<4s6H3I5H2I", cd, pos)
+              fn_len, ex_len, cm_len = v[10], v[11], v[12]
+              name = cd[pos+46:pos+46+fn_len].decode("utf-8", "replace")
+              extra = cd[pos+46+fn_len:pos+46+fn_len+ex_len]
+              csize, usize, local_offset, method = v[8], v[9], v[16], v[4]
+              ep = 0
+              while ep + 4 <= len(extra):
+                  etype, elen = struct.unpack_from("<HH", extra, ep)
+                  value = extra[ep+4:ep+4+elen]
+                  if etype == 1:
+                      vp = 0
+                      if usize == 0xFFFFFFFF:
+                          usize = struct.unpack_from("<Q", value, vp)[0]; vp += 8
+                      if csize == 0xFFFFFFFF:
+                          csize = struct.unpack_from("<Q", value, vp)[0]; vp += 8
+                      if local_offset == 0xFFFFFFFF:
+                          local_offset = struct.unpack_from("<Q", value, vp)[0]; vp += 8
+                  ep += 4 + elen
+              records.append((name, csize, usize, local_offset, method))
+              pos += 46 + fn_len + ex_len + cm_len
+          def extract(name):
+              rec = next((x for x in records if x[0] == name), None)
+              if not rec:
+                  return None
+              _, csize, usize, offset, method = rec
+              if offset + 30 > len(head):
+                  return None
+              h = struct.unpack_from("<4s5H3I2H", head, offset)
+              fnlen, exlen = h[9], h[10]
+              start = offset + 30 + fnlen + exlen
+              raw = head[start:start+csize]
+              if len(raw) != csize:
+                  return None
+              if method == 8:
+                  raw = zlib.decompress(raw, -15)
+              elif method != 0:
+                  raise SystemExit(f"Unsupported ZIP compression method {method} for {name}")
+              if len(raw) != usize:
+                  raise SystemExit(f"Uncompressed size mismatch for {name}: {len(raw)} vs {usize}")
+              return raw
+          for name in ("META-INF/com/android/metadata", "payload_properties.txt"):
+              raw = extract(name)
+              print(f"\\n--- {name} ---")
+              if raw is None:
+                  print("Not available in first MiB.")
+              else:
+                  print(raw.decode("utf-8", "replace")[:8000])
+          payload_rec = next((x for x in records if x[0] == "payload.bin"), None)
+          if payload_rec:
+              _, csize, usize, offset, method = payload_rec
+              h = struct.unpack_from("<4s5H3I2H", head, offset)
+              payload_start = offset + 30 + h[9] + h[10]
+              payload = head[payload_start:]
+              print(f"\\nPayload ZIP entry: compressed={csize:,}, uncompressed={usize:,}, method={method}, data offset={payload_start}")
+              if payload[:4] != b"CrAU":
+                  raise SystemExit("payload.bin magic is not CrAU.")
+              major = int.from_bytes(payload[4:12], "big")
+              manifest_size = int.from_bytes(payload[12:20], "big")
+              signature_size = int.from_bytes(payload[20:24], "big") if major >= 2 else 0
+              manifest_start = 24 if major >= 2 else 20
+              print(f"Payload header: major={major}, manifest_size={manifest_size:,}, metadata_signature_size={signature_size:,}")
+              def varint(buf, p):
+                  value = shift = 0
+                  while p < len(buf):
+                      b = buf[p]; p += 1
+                      value |= (b & 0x7F) << shift
+                      if not b & 0x80:
+                          return value, p
+                      shift += 7
+                      if shift > 70:
+                          raise ValueError("Invalid protobuf varint")
+                  raise ValueError("Truncated protobuf varint")
+              def fields(buf):
+                  p = 0
+                  while p < len(buf):
+                      tag, p = varint(buf, p)
+                      number, wire = tag >> 3, tag & 7
+                      if wire == 0:
+                          value, p = varint(buf, p)
+                      elif wire == 1:
+                          value, p = buf[p:p+8], p+8
+                      elif wire == 2:
+                          n, p = varint(buf, p)
+                          value, p = buf[p:p+n], p+n
+                      elif wire == 5:
+                          value, p = buf[p:p+4], p+4
+                      else:
+                          raise ValueError(f"Unsupported protobuf wire type {wire}")
+                      yield number, wire, value
+              if manifest_size <= len(payload) - manifest_start:
+                  manifest = payload[manifest_start:manifest_start+manifest_size]
+                  partitions = []
+                  for number, wire, part in fields(manifest):
+                      if number == 13 and wire == 2:
+                          pname, psize = "?", None
+                          for pn, pw, pv in fields(part):
+                              if pn == 1 and pw == 2:
+                                  pname = pv.decode("utf-8", "replace")
+                              elif pn == 3 and pw == 2:
+                                  for qn, qw, qv in fields(pv):
+                                      if qn == 1 and qw == 0:
+                                          psize = qv
+                          partitions.append((pname, psize))
+                  print("Payload partitions:")
+                  for pname, psize in partitions:
+                      print(f" - {pname}: {psize if psize is not None else 'size unavailable'} bytes")
+              else:
+                  print("Manifest exceeds the fetched first MiB; partition names require a larger range.")
+          PY
