@@ -169,16 +169,22 @@ jobs:
                   yield number, wire, value
           manifest = payload[manifest_start:manifest_start+manifest_size]
           partitions = []
+          debug_first = True
           for number, wire, part in fields(manifest):
               if number == 13 and wire == 2:
                   pname, psize = "?", None
-                  for pn, pw, pv in fields(part):
+                  part_fields = list(fields(part))
+                  for pn, pw, pv in part_fields:
                       if pn == 1 and pw == 2:
                           pname = pv.decode("utf-8", "replace")
-                      elif pn == 4 and pw == 2:
-                          for qn, qw, qv in fields(pv):
+                      if pn in (3, 4, 7) and pw == 2:
+                          nested = list(fields(pv))
+                          for qn, qw, qv in nested:
                               if qn == 1 and qw == 0:
                                   psize = qv
+                  if debug_first:
+                      print("DEBUG first PartitionUpdate field tags:", [(pn, pw, len(pv) if isinstance(pv, bytes) else pv) for pn, pw, pv in part_fields])
+                      debug_first = False
                   partitions.append((pname, psize))
           print("\nDonor payload partitions and declared new-image sizes (do NOT flash these to joyeuse):")
           for pname, psize in partitions:
