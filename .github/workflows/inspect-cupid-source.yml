@@ -2,6 +2,9 @@ name: Inspect MIUI 14 cupid source package
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/inspect-cupid-source.yml"
 
 permissions:
   contents: read
