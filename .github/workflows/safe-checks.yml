@@ -25,8 +25,10 @@ jobs:
           test -f README.md
           grep -q 'MIUI 14 China' README.md
           grep -q 'joyeuse' README.md
-          grep -q 'Android 12' README.md
-          grep -q 'does `not` download ROM images' README.md || grep -q 'does **not** download ROM images' README.md
+          grep -q 'cupid' README.md
+          grep -q 'Android 13' README.md
+          grep -q 'V14.0.10.0.TLCCNXM' README.md
+          grep -q 'does **not** download ROM images' README.md
           grep -q 'No flashable ROM is produced' README.md
           echo "Metadata checks passed. This workflow does not build or package a ROM."
 
