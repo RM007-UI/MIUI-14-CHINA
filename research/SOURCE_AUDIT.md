@@ -149,3 +149,17 @@ A targeted follow-up checked the exact build declarations in `nekoshirro/device_
 - The vendor repository's generated build definitions reference numerous proprietary system/vendor services and VINTF XML files. This reinforces that the target stack is more than a generic system image; exact HAL/service declarations and blob baseline must be reconciled before building.
 
 No reproducible public manifest, exact compiler pin, build log, boot test, or successful MIUI 14 `cupid` → `joyeuse` artifact was found during this pass. This is a documented gap, not evidence that a build is impossible. No ROM was downloaded, compiled, packaged, or flashed.
+
+## Build-readiness gate (reviewed 2026-10-20)
+
+**Current decision: NO-GO for a ROM build or flashable package.** The current repository workflow `.github/workflows/safe-checks.yml` explicitly validates metadata only; it does not fetch source packages, extract partitions, build images, or test a boot. Its successful status must not be represented as a ROM build.
+
+Before moving to a controlled source-inspection/build stage, the project needs all of the following:
+
+1. A pinned, reproducible manifest for the Android 13 platform and all device/vendor/kernel dependencies, with the exact kernel configuration and compiler revision recorded.
+2. A defined and available build workspace with enough disk space for the Android source checkout, prebuilts, output tree, and the source ROM; no workspace capacity has been verified in this repository.
+3. A controlled, read-only inspection process for the Xiaomi 12 source package, including package integrity/hash records and a list of partitions/files actually present. The archive index alone is not evidence of package contents.
+4. A VINTF comparison between the final donor framework compatibility matrix and the target's device/vendor/ODM manifests, followed by SELinux/property/service dependency review.
+5. A packaging design that keeps Joyeuse boot/kernel, device-specific vendor/firmware and partition layout; donor `cupid` device-specific images must not be transplanted.
+
+No automated job should download multi-gigabyte firmware or publish a flashable artifact until these gates are met. No ROM download, source checkout, compilation, phone connection, partition operation, or flashing was performed in this review.
