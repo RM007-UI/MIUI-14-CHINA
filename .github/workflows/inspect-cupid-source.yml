@@ -36,8 +36,8 @@ jobs:
           url="https://bigota.d.miui.com/V14.0.10.0.TLCCNXM/miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
           # A suffix range lets us inspect the ZIP central directory without pulling 5.6 GB.
           # --max-filesize prevents a server that ignores Range from downloading the whole ROM.
-          curl --fail --location --silent --show-error --max-time 120 --max-filesize 2000000 \
-            --retry 2 --retry-delay 2 --range -1048576 \
+          curl --fail --location --silent --show-error --max-time 300 --max-filesize 5000000 \
+            --retry 2 --retry-delay 2 --range -4194304 \
             --dump-header range-headers.txt --output zip-tail.bin "$url"
           echo "Range response headers:"
           grep -iE '^(HTTP/|content-length:|content-range:|accept-ranges:|etag:)' range-headers.txt || true
