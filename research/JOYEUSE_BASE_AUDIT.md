@@ -19,6 +19,32 @@ Status: **package metadata read from the remote archive; no full ROM download or
 - Official release announcement: https://c.mi.com/global/post/589058
 - Archive URL: `https://bigota.d.miui.com/V14.0.3.0.SJZMIXM/miui_JOYEUSEGlobal_V14.0.3.0.SJZMIXM_df17e3fabf_12.0.zip`
 
+## ZIP inventory observed by successful CI run
+
+The workflow inspected the central directory using HTTP byte ranges and did not fetch the full 2.69 GiB archive. The inventory declares these entries:
+
+| Entry | Uncompressed size (bytes) | Notes |
+|---|---:|---|
+| `product.new.dat.br` | 684,641,264 | Compressed block-based product image data |
+| `system.new.dat.br` | 1,451,119,470 | Compressed block-based system image data |
+| `system_ext.new.dat.br` | 221,645,394 | Compressed block-based system_ext image data |
+| `vendor.new.dat.br` | 440,014,892 | Compressed block-based vendor image data |
+| `boot.img` | 134,217,728 | Target-specific boot image; not extracted |
+| `firmware-update/dtbo.img` | 8,388,608 | Target-specific DTBO; not extracted |
+| `firmware-update/vbmeta.img` | 4,096 | Target AVB metadata; not extracted |
+| `firmware-update/vbmeta_system.img` | 4,096 | Target AVB metadata; not extracted |
+| `dynamic_partitions_op_list` | 857 | Logical partition operation description |
+| `system.transfer.list` | 13,312 | Transfer map for block-based system image |
+| `system_ext.transfer.list` | 2,587 | Transfer map for block-based system_ext image |
+| `product.transfer.list` | 20,531 | Transfer map for block-based product image |
+| `vendor.transfer.list` | 5,027 | Transfer map for block-based vendor image |
+| `META-INF/com/google/android/updater-script` | 5,219 | Recovery installer script |
+| `META-INF/com/google/android/update-binary` | 2,367,032 | Recovery installer binary |
+
+The full inventory also includes Qualcomm firmware update payloads such as `NON-HLOS.bin`, `BTFM.bin`, `abl.elf`, `aop.mbn`, `dspso.bin`, `hyp.mbn`, `tz.mbn`, and `xbl.elf`. These are listed as metadata only. The workflow did not extract, inspect, or flash them.
+
+**Important:** These are sizes declared in the official Joyeuse package's ZIP directory, not the sizes of a custom port. Do not use this inventory as permission to flash, repack, or mix Global and China ROM components.
+
 ## Parser correction
 
 The recovery ZIP does **not** contain `payload.bin`. It declares `ota-type=BLOCK`, so it is not structured like the payload-based `cupid` archive. The first CI attempt correctly read the package metadata but failed because the generic parser incorrectly assumed every recovery ZIP contains `payload.bin`. The Joyeuse workflow has been updated to handle this package type by reporting the ZIP inventory instead of failing.
