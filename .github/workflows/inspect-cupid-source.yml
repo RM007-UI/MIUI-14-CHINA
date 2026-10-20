@@ -32,8 +32,8 @@ jobs:
           url="https://bigota.d.miui.com/V14.0.10.0.TLCCNXM/miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
           # A suffix range lets us inspect the ZIP central directory without pulling 5.6 GB.
           # --max-filesize prevents a server that ignores Range from downloading the whole ROM.
-          curl --fail --location --silent --show-error --max-time 180 --max-filesize 9000000 \
-            --retry 2 --retry-delay 2 --range -8388608 \
+          curl --fail --location --silent --show-error --max-time 120 --max-filesize 2000000 \
+            --retry 2 --retry-delay 2 --range -1048576 \
             --dump-header range-headers.txt --output zip-tail.bin "$url"
           echo "Range response headers:"
           grep -iE '^(HTTP/|content-length:|content-range:|accept-ranges:|etag:)' range-headers.txt || true
@@ -58,7 +58,7 @@ jobs:
           cd_size, cd_offset = vals[5], vals[6]
           cd_start_in_tail = cd_offset - start
           if cd_start_in_tail < 0 or cd_start_in_tail + cd_size > len(data):
-              raise SystemExit("ZIP central directory does not fit in the downloaded range; increase the range size.")
+              raise SystemExit("ZIP central directory does not fit in the downloaded range; increase the range size to 4 MiB if needed.")
           print(f"ZIP central-directory entries: {entries}")
           print("Top-level paths:")
           roots = set()
