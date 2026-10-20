@@ -121,7 +121,7 @@ jobs:
           cd = open("zip-cd.bin", "rb").read()
           records = []
           pos = 0
-          while pos + 46 <= len(cd) and cd[pos:pos+4] == b"PK\\x01\\x02":
+          while pos + 46 <= len(cd) and cd[pos:pos+4] == b"PK\x01\x02":
               v = struct.unpack_from("<4s6H3I5H2I", cd, pos)
               fn_len, ex_len, cm_len = v[10], v[11], v[12]
               name = cd[pos+46:pos+46+fn_len].decode("utf-8", "replace")
@@ -164,7 +164,7 @@ jobs:
               return raw
           for name in ("META-INF/com/android/metadata", "payload_properties.txt"):
               raw = extract(name)
-              print(f"\\n--- {name} ---")
+              print(f"\n--- {name} ---")
               if raw is None:
                   print("Not available in first MiB.")
               else:
@@ -175,7 +175,7 @@ jobs:
               h = struct.unpack_from("<4s5H3I2H", head, offset)
               payload_start = offset + 30 + h[9] + h[10]
               payload = head[payload_start:]
-              print(f"\\nPayload ZIP entry: compressed={csize:,}, uncompressed={usize:,}, method={method}, data offset={payload_start}")
+              print(f"\nPayload ZIP entry: compressed={csize:,}, uncompressed={usize:,}, method={method}, data offset={payload_start}")
               if payload[:4] != b"CrAU":
                   raise SystemExit("payload.bin magic is not CrAU.")
               major = int.from_bytes(payload[4:12], "big")
