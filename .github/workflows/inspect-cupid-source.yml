@@ -175,7 +175,7 @@ jobs:
                   for pn, pw, pv in fields(part):
                       if pn == 1 and pw == 2:
                           pname = pv.decode("utf-8", "replace")
-                      elif pn == 14 and pw == 2:
+                      elif pn == 3 and pw == 2:
                           for qn, qw, qv in fields(pv):
                               if qn == 1 and qw == 0:
                                   psize = qv
