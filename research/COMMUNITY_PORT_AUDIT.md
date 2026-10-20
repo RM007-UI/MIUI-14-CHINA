@@ -16,13 +16,13 @@ Source listing: https://t.me/s/Miatoll?q=%23a13
 - `images/boot.img`: 134,217,728 bytes declared.
 - `images/dtbo.img`: 1,049,813 bytes declared.
 - `super.img`: 8,053,063,680 bytes declared uncompressed.
-- The package includes an Android recovery installer script that writes `boot.img`, `dtbo.img`, and `super.img` to target partitions. The workflow did not execute this script or extract the images.
+- The package includes an Android recovery installer script that writes `boot.img`, `dtbo.img`, and `super.img` directly to target partitions. Its embedded `META-INF/com/android/metadata` explicitly declares `pre-device=joyeuse` but also declares `post-build=Redmi/joyeuse_global/joyeuse:12/.../V14.0.3.0.SJZMIXM`, `post-sdk-level=31`, and the February 2023 security patch. That is Android 12 Global metadata, not proof of an Android 13 China build. The workflow did not execute this script or extract the images.
 
-The SHA-256 identifies only this downloaded archive; it does not prove who built it or that its contents are safe.
+The SHA-256 identifies only this downloaded archive; it does not prove who built it or that its contents are safe. ZIP entries also contain timestamps dated 2026-10-26, later than this audit date (2026-10-20). ZIP timestamps can be wrong, so this is an anomaly to record, not proof of tampering.
 
 ## Important mismatch to investigate
 
-The installer assertion accepts `curtana`, `joyeuse`, and the generic `miatoll` product string, despite the post describing the package as Joyeuse-only. Its printed target build string refers to `Redmi/miatoll_global/miatoll:12/.../V14.0.3.0.SJZMIXM`, which identifies an Android 12 Global MIUI base rather than the advertised Android 13 China build. This may be stale installer metadata, but it must not be silently assumed harmless.
+The installer assertion accepts `curtana`, `joyeuse`, and the generic `miatoll` product string, despite the post describing the package as Joyeuse-only. Its printed target build string also refers to `Redmi/miatoll_global/miatoll:12/.../V14.0.3.0.SJZMIXM`. The embedded OTA metadata independently confirms SDK 31 (Android 12) and the Joyeuse Global `V14.0.3.0.SJZMIXM` base. These fields may be stale from the base package, but the advertised Android 13 China identity has not been verified from the actual system image.
 
 The candidate Joyeuse device tree declares a 134,217,728-byte boot partition and an 8,589,934,592-byte super partition. The archive's declared boot image size exactly matches the tree's boot size, and its super image is smaller than the tree's declared super size. These are repository/package declarations, not measurements of the actual phone partition table; matching sizes alone do not prove compatibility.
 
@@ -33,6 +33,7 @@ The candidate Joyeuse device tree declares a 134,217,728-byte boot partition and
 - Actual partition layout on the target phone.
 - Whether the image boots, and whether calls, mobile data, Wi-Fi, camera, audio, NFC, fingerprint, encryption, and recovery work.
 - The reported Setup Wizard and NFC bugs.
+- The actual Android version and China-vs-Global system identity inside `super.img`; only the ZIP's embedded installer metadata was inspected.
 
 ## Decision
 
