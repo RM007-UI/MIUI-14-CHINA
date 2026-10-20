@@ -5,15 +5,18 @@ Status: **strategy recommendation / not a build recipe**.
 
 ## Decision
 
-Use an official MIUI 14 build for Redmi Note 9 Pro (`joyeuse`) as the device-specific baseline. Investigate China-region MIUI apps, resources, and framework customizations as a separate migration layer. Do not use the Xiaomi 12 (`cupid`) ROM as a direct base or copy its hardware images.
+First inspect the existing Joyeuse-only MIUI 14 China Android 13 port as a reference, because a community archive lists a build `V14.0.10.0.TLCCNXM` dated 2026-10-16 specifically for Joyeuse. The listing reports missing Setup Wizard and NFC issues; these claims have not been independently verified, and the build should not be assumed safe or suitable for daily use. Do not redistribute its package or blindly adopt it.
 
-This is a major improvement over trying to transplant a Snapdragon 8 Gen 1 device's full Android 13 system onto Joyeuse's Snapdragon 720G platform.
+For our own reproducible engineering work, use an official MIUI 14 build for Redmi Note 9 Pro (`joyeuse`) as the device-specific baseline. Investigate China-region MIUI apps, resources, and framework customizations as a separate migration layer. Do not use the Xiaomi 12 (`cupid`) ROM as a direct base or copy its hardware images.
+
+This avoids transplanting a Snapdragon 8 Gen 1 device's full Android 13 system onto Joyeuse's Snapdragon 720G platform and also gives us a target-specific community port to compare against.
 
 ## Evidence
 
 - Xiaomi Community announced official Redmi Note 9 Pro Joyeuse MIUI 14 Global Stable `V14.0.3.0.SJZMIXM`, based on Android 12: https://c.mi.com/global/post/589058
 - The official recovery package is indexed as `miui_JOYEUSEGlobal_V14.0.3.0.SJZMIXM_df17e3fabf_12.0.zip`, around 2.7 GB, MD5 `df17e3fabf2284cc28efe8d10d012007`: https://mirom.ezbox.idv.tw/en/phone/joyeuse/
-- Public community archive results document older MIUI China ports for the Miatoll family based on Android 12, including a MIUI China 13.0.1 port. This is useful precedent only, not proof that a compatible MIUI 14 China image exists or that every Miatoll variant is interchangeable: https://telegram.me/s/JoyeuseUpdates?q=%23Port
+- Public community archive lists a Joyeuse-only MIUI 14 China `V14.0.10.0.TLCCNXM` Android 13 port dated 2026-10-16. Its listing reports missing Setup Wizard and NFC issues. These are community claims, not independent validation: https://t.me/s/Miatoll?q=%23a13
+- Earlier community archives also document MIUI China Android 12 ports for the Miatoll family. These are historical precedent only, not proof of quality or compatibility across all variants: https://telegram.me/s/JoyeuseUpdates?q=%23Port
 - The proposed Xiaomi 12 China donor is Android 13 and marked A/B, while Joyeuse is A-only. Its hardware partitions and vendor stack are incompatible assumptions for a direct port. See `CUPID_PAYLOAD_AUDIT.md`.
 
 ## Layer boundaries
