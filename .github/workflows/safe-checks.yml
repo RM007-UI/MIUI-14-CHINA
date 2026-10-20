@@ -1,0 +1,35 @@
+name: Safe repository checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  metadata-check:
+    name: Validate project metadata only
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify scope and safety notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f README.md
+          grep -q 'MIUI 14 China' README.md
+          grep -q 'joyeuse' README.md
+          grep -q 'Android 12' README.md
+          grep -q 'does `not` download ROM images' README.md || grep -q 'does **not** download ROM images' README.md
+          grep -q 'No flashable ROM is produced' README.md
+          echo "Metadata checks passed. This workflow does not build or package a ROM."
+
+# Safety boundary:
+# This workflow intentionally does not download firmware, extract ROMs,
+# build system images, upload ROM artifacts, or run adb/fastboot commands.
