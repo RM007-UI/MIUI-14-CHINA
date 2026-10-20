@@ -23,13 +23,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f README.md
-          grep -q 'MIUI 14 China' README.md
-          grep -q 'joyeuse' README.md
-          grep -q 'cupid' README.md
-          grep -q 'Android 13' README.md
-          grep -q 'V14.0.10.0.TLCCNXM' README.md
-          grep -q 'does **not** download ROM images' README.md
-          grep -q 'No flashable ROM is produced' README.md
+          grep -Fq 'MIUI 14 China' README.md
+          grep -Fq 'joyeuse' README.md
+          grep -Fq 'cupid' README.md
+          grep -Fq 'Android 13' README.md
+          grep -Fq 'V14.0.10.0.TLCCNXM' README.md
+          grep -Fq 'does **not** download ROM images' README.md
+          grep -Fq 'No flashable ROM is produced' README.md
           echo "Metadata checks passed. This workflow does not build or package a ROM."
 
 # Safety boundary:
