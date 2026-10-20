@@ -18,7 +18,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Verify scope and safety notes
+      - name: Verify project scope and safety notes
         shell: bash
         run: |
           set -euo pipefail
@@ -28,10 +28,12 @@ jobs:
           grep -Fq 'cupid' README.md
           grep -Fq 'Android 13' README.md
           grep -Fq 'V14.0.10.0.TLCCNXM' README.md
-          grep -Fq 'does **not** download ROM images' README.md
-          grep -Fq 'No flashable ROM is produced' README.md
+          grep -Fq 'No ROM image has been built' README.md
+          grep -Fq 'does not prove a ROM builds' README.md
+          test -f research/CUPID_PAYLOAD_AUDIT.md
+          test -f research/PORT_STRATEGY.md
+          test -f .github/workflows/inspect-joyeuse-base.yml
           echo "Metadata checks passed. This workflow does not build or package a ROM."
 
 # Safety boundary:
-# This workflow intentionally does not download firmware, extract ROMs,
-# build system images, upload ROM artifacts, or run adb/fastboot commands.
+# This workflow intentionally does not flash devices or write device partitions.
