@@ -136,3 +136,16 @@ The recent `joyeuse` device/vendor trees provide a better lead for further sourc
 - No ROM was built or packaged.
 - No commands were sent to the phone.
 - No claim is made that an installable or bootable port exists.
+
+
+### Toolchain and packaging dependency check (2026-10-20)
+
+A targeted follow-up checked the exact build declarations in `nekoshirro/device_xiaomi_joyeuse` branch `13-FBEv1` and the candidate kernel branch `arrow-13.0`:
+
+- `BoardConfig.mk` explicitly selects `TARGET_KERNEL_CONFIG := cust_defconfig`, `TARGET_KERNEL_SOURCE := kernel/xiaomi/sm6250`, `TARGET_KERNEL_CLANG_VERSION := alchemist`, `LLVM=1`, and `LD=ld.lld`. This narrows the expected build environment, but it does not identify an immutable clang source revision or prove that `prebuilts/clang/host/linux-x86/clang-alchemist` is present in the intended ROM tree.
+- The selected ArrowOS kernel candidate has Linux version 4.14.304 and the requested `arch/arm64/configs/cust_defconfig`. This confirms a path-level match only. No pinned manifest or build log was found tying this kernel SHA to the exact device/vendor SHAs, so it remains an unverified combination.
+- The device product file `aosp_joyeuse.mk` declares `PRODUCT_NAME := aosp_joyeuse` and inherits `vendor/aosp/config/common_full_phone.mk`. Therefore this tree is an AOSP-derived target, not a MIUI product definition. A port would need a deliberately engineered product configuration rather than merely changing a product name.
+- The selected kernel config enables `CONFIG_MODULE_SIG_FORCE=y`. This is a concrete review item: kernel modules supplied by the vendor must be compatible with the kernel's signature trust setup. The public config does not establish whether the exact modules and signing key match.
+- The vendor repository's generated build definitions reference numerous proprietary system/vendor services and VINTF XML files. This reinforces that the target stack is more than a generic system image; exact HAL/service declarations and blob baseline must be reconciled before building.
+
+No reproducible public manifest, exact compiler pin, build log, boot test, or successful MIUI 14 `cupid` → `joyeuse` artifact was found during this pass. This is a documented gap, not evidence that a build is impossible. No ROM was downloaded, compiled, packaged, or flashed.
