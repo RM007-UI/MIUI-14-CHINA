@@ -171,3 +171,11 @@ Google's current AOSP setup guide lists a 64-bit x86 workstation, at least 400 G
 Official reference: https://source.android.com/docs/setup/start/requirements
 
 This project has not verified access to a build host meeting those requirements. The existing GitHub Actions workflow is a short metadata-only check and is intentionally not a ROM build runner. Therefore the immediate blocker is not just finding a build command: a suitable, verified Linux build host and pinned source manifest are prerequisites. Do not initiate a full source sync or download the multi-gigabyte donor ROM until the host's disk/RAM capacity and source manifest are established.
+
+
+## Live source-download test (2026-10-20)
+
+- The first full-package attempt was cancelled by the 90-minute job limit. Its live curl log showed highly variable throughput (roughly 30–112 KB/s in the initial sample), making a full 5.58 GB transfer impractical on that run. The package was not fully downloaded and its MD5 was not verified.
+- The official-host URL does support HTTP byte ranges: the server returned `206 Partial Content`, `Accept-Ranges: bytes`, and a total object size of **5,584,104,463 bytes** (about **5.20 GiB**). This was established by a 1 MiB suffix request; it does not establish package integrity or contents.
+- The current workflow is being changed to inspect ZIP central-directory metadata through bounded byte-range requests instead of downloading the entire package. It does not extract or publish proprietary ROM contents and does not issue any device commands.
+- The Android 13-era `joyeuse/miatoll` candidate device tree inspected directly declares `TARGET_KERNEL_SOURCE := kernel/xiaomi/sm6250`, `TARGET_KERNEL_CONFIG := vendor/xiaomi/miatoll_defconfig`, boot header v2, and a 8 GiB super partition size in that source configuration. These are source-tree declarations only; they must be checked against the actual target device's partition map and matching kernel revision before producing images.
