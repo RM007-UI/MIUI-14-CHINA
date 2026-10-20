@@ -55,7 +55,7 @@ jobs:
           entries, cd_size, cd_offset = vals[4], vals[5], vals[6]
           # ZIP64 stores real sizes/offsets in a separate end record when classic
           # ZIP fields overflow their 32-bit limits (0xFFFFFFFF / 0xFFFF).
-          z64 = data.rfind(b"PK\\x06\\x06", 0, eocd)
+          z64 = data.rfind(b"PK\x06\x06", 0, eocd)
           if z64 >= 0 and (cd_offset == 0xFFFFFFFF or cd_size == 0xFFFFFFFF or entries == 0xFFFF):
               z = struct.unpack_from("<4sQ2H2I4Q", data, z64)
               entries, cd_size, cd_offset = z[7], z[8], z[9]
