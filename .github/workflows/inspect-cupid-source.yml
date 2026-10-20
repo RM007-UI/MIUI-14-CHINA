@@ -1,0 +1,69 @@
+name: Inspect MIUI 14 cupid source package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check available workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -hT "$GITHUB_WORKSPACE"
+          free -h
+          echo "This job downloads only the source package for inspection. It does not flash any device or publish the proprietary ROM."
+
+      - name: Download and verify official package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          url="https://bigota.d.miui.com/V14.0.10.0.TLCCNXM/miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
+          file="miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 --output "$file" "$url"
+          echo "Downloaded size:"
+          du -h "$file"
+          echo "Expected MD5: 9aa2f552b35928b0ee352fc6346aa595"
+          actual="$(md5sum "$file" | awk '{print $1}')"
+          echo "Actual MD5:   $actual"
+          test "$actual" = "9aa2f552b35928b0ee352fc6346aa595"
+          echo "Source package checksum verified."
+
+      - name: Inventory package without extracting ROM images
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile, os
+          path = os.path.join(os.environ["RUNNER_TEMP"], "miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip")
+          with zipfile.ZipFile(path) as z:
+              items = z.infolist()
+              print(f"ZIP entries: {len(items)}")
+              print("Top-level paths:")
+              roots = sorted({i.filename.split("/", 1)[0] for i in items if i.filename})
+              for root in roots:
+                  print(" -", root)
+              print("\nPartition/payload-related entries:")
+              for i in items:
+                  n = i.filename.lower()
+                  if any(k in n for k in ("payload.bin", "metadata", "android-info", "boot.img", "vendor.img", "super.img", "firmware-update", "scatter")):
+                      print(f"{i.file_size:>12}  {i.filename}")
+              print("\nSmall package metadata:")
+              for i in items:
+                  n = i.filename.lower()
+                  if i.file_size <= 128 * 1024 and (n.endswith("/metadata") or n.endswith("android-info.txt") or n.endswith("updater-script")):
+                      try:
+                          data = z.read(i).decode("utf-8", "replace")
+                          print(f"--- {i.filename} ---")
+                          print(data[:12000])
+                      except Exception as e:
+                          print(f"Could not read {i.filename}: {e}")
+          PY
+          rm -f "$RUNNER_TEMP/miui_CUPID_V14.0.10.0.TLCCNXM_9aa2f552b3_13.0.zip"
+          echo "Inspection finished; source package deleted from the ephemeral runner."
