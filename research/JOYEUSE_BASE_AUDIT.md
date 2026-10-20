@@ -45,6 +45,11 @@ The full inventory also includes Qualcomm firmware update payloads such as `NON-
 
 **Important:** These are sizes declared in the official Joyeuse package's ZIP directory, not the sizes of a custom port. Do not use this inventory as permission to flash, repack, or mix Global and China ROM components.
 
+## CI evidence
+
+- Successful metadata inspection: https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39398379896
+- The workflow read the remote ZIP central directory and installer metadata using byte-range requests. It did not download the full package, validate its signature, extract any image, or build a ROM.
+
 ## Parser correction
 
 The recovery ZIP does **not** contain `payload.bin`. It declares `ota-type=BLOCK`, so it is not structured like the payload-based `cupid` archive. The first CI attempt correctly read the package metadata but failed because the generic parser incorrectly assumed every recovery ZIP contains `payload.bin`. The Joyeuse workflow has been updated to handle this package type by reporting the ZIP inventory instead of failing.
