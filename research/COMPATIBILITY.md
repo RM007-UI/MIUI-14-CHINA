@@ -1,14 +1,12 @@
-# Initial compatibility review: cupid → joyeuse
+# Compatibility review: MIUI 14 China on Joyeuse
 
-Status: **unverified / research only**. This document records known constraints; it is not a build recipe.
+Status: **unverified / research only**. This document records known constraints; it is not a build recipe. A Joyeuse-only MIUI 14 China Android 13 community port is listed publicly, but this project has not verified its package or tested its reported behavior.
 
-## Source candidate
+## Relevant source candidates
 
-- Device: Xiaomi 12 China (`cupid`)
-- Candidate MIUI build: `V14.0.10.0.TLCCNXM`
-- Android base reported by the public firmware index: Android 13
-- Reference: https://github.com/XiaomiFirmwareUpdater/xiaomifirmwareupdater.github.io/blob/f3fd55eee00004d859cde590e446fabc4e93acc5/pages/miui/full/cupid.md
-- Validation still required: package signature/origin, full package metadata, hashes from a trusted source, and confirmation that the selected package is the intended China stable release.
+- Target-specific base: official Joyeuse Global MIUI 14 `V14.0.3.0.SJZMIXM`, Android 12. Its remote metadata is recorded in `JOYEUSE_BASE_AUDIT.md`; the full package has not been downloaded or hash-verified in this workspace.
+- China reference: community archive lists a Joyeuse-only MIUI 14 China `V14.0.10.0.TLCCNXM` Android 13 port dated 2026-10-16. The listing reports missing Setup Wizard and NFC issues; these claims are not independently verified. Reference: https://t.me/s/Miatoll?q=%23a13
+- Original cross-device donor: Xiaomi 12 China `cupid` `V14.0.10.0.TLCCNXM`, Android 13. The package manifest has been parsed, but it is A/B and targets different hardware. See `CUPID_PAYLOAD_AUDIT.md`. It is not a direct flashing source.
 
 ## Target candidate sources
 
@@ -29,4 +27,4 @@ Status: **unverified / research only**. This document records known constraints;
 
 ## Decision
 
-Do not build or install an image based on this information. The source package can guide UI/framework research, but a safe port needs a target-specific technical plan and verified device sources first. No phone-side commands should be run as part of this research stage.
+Do not build or install an image based on this information alone. Prefer the target-specific Joyeuse base and use the existing China port only as a comparison/reference until its provenance, integrity, bugs, and compatibility are reviewed. A safe custom port still needs a reproducible source manifest, a verified build host, and target-specific compatibility checks. No phone-side commands should be run as part of this research stage.
