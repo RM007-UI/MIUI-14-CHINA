@@ -125,7 +125,12 @@ jobs:
           print(metadata.decode("utf-8", "replace") if metadata else "Not available in first MiB.")
           payload_rec = next((x for x in records if x[0] == "payload.bin"), None)
           if not payload_rec:
-              raise SystemExit("payload.bin not found in ZIP directory.")
+              print("\\nNo payload.bin: this is a block-based recovery package, not a payload-based OTA ZIP.")
+              print("ZIP inventory (name | compressed bytes | uncompressed bytes):")
+              for name, csize, usize, offset, method in records:
+                  print(f" - {name} | {csize} | {usize}")
+              print("Package metadata was read successfully; partition-image details require inspecting this recovery package's own installer contents.")
+              raise SystemExit(0)
           _, csize, usize, offset, method = payload_rec
           h = struct.unpack_from("<4s5H3I2H", head, offset)
           payload_start = offset + 30 + h[9] + h[10]
