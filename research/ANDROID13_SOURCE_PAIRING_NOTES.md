@@ -42,6 +42,24 @@ The target device tree's SELinux rules include device-specific permissions and p
 
 The next source-only milestone is to acquire and inspect source-package metadata in a controlled build workspace, pin all input revisions and compiler provenance, then produce a concrete framework/VINTF/partition compatibility checklist before attempting a build. No target-phone commands, partition reads/writes, downloads of the large ROM, or flashing occurred during this review.
 
+
+## Pinned target manifest cross-check
+
+The exact pinned Joyeuse Android 13 device-tree files were fetched by commit/branch rather than inferred from the repository's moving default branch:
+
+- `manifest.xml` at `13-FBEv1`, blob `b73e69f5d5ce685d4faeadc4a919fdd1bd4117fd`, declares device manifest target-level 4 and includes HIDL service declarations for device hardware such as audio, fingerprint, Bluetooth, camera, DRM, gatekeeper, keymaster, radio and media.
+- `manifest_joyeuse.xml` at the same ref, blob `02182c079721fc1f5f457b6d1f41c476062dbdcc`, adds the Joyeuse NFC HAL.
+- `compatibility_matrix.xml` at the same ref, blob `5f447e787c3cb6b4557be4ad519c68c27e1e015e`, contains required HIDL interfaces; it is not a proof that the Xiaomi 12 framework will accept this target vendor implementation.
+- `BoardConfig.mk` at the same ref, blob `4067e1e9069d64d72e7c940442e1234c6b543fb3`, names target framework/device compatibility inputs and ODM manifest SKU files. Those exact inputs must be resolved in a complete source manifest before VINTF validation.
+
+These declarations make the main risk concrete: the donor's framework and the target's hardware services are not interchangeable simply because both use Android 13. The final assembled framework compatibility matrix must be checked against the target's actual device/vendor/ODM manifests and the service implementations that will ship.
+
+## Build gate decision
+
+Do not download the 5.6 GB Recovery archive or the 7.0 GB Fastboot archive merely to start experimenting. The source archive index gives version and approximate size, but not enough evidence to choose or safely transform a package. First establish a pinned build manifest, toolchain provenance, sufficient workspace/storage, and a repeatable unpack/inspect workflow. If the donor package is later inspected, keep it as source material only: do not transplant the Xiaomi 12 boot, vendor, firmware, modem, or partition images onto Joyeuse.
+
+No ROM archive was downloaded, no third-party build script was run, and no phone-side action was performed in this audit.
+
 ## Decision
 
 Keep this as a research candidate only. Before a build can be called reproducible, identify a compatible manifest and exact toolchain revision, audit the framework/vendor interfaces and blob provenance, and validate the output in an isolated environment. No ROM was built and no live device was accessed.
