@@ -1,5 +1,9 @@
 name: Inspect MIUI 14 cupid source package
 
+concurrency:
+  group: inspect-cupid-source
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
@@ -12,7 +16,7 @@ permissions:
 jobs:
   inspect-source:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
       - name: Check runner and source package headers
         shell: bash
