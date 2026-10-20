@@ -64,6 +64,12 @@ The matching `nekoshirro/vendor_xiaomi_joyeuse` branch `13` contains generated v
 
 This strengthens the target-side research baseline, but a key gap remains: no matching repo manifest or build record has yet proved that the exact `13-FBEv1` device tree, vendor branch `13`, and ArrowOS kernel branch `arrow-13.0` were built and tested together. Their labels are not proof of a coherent tested stack.
 
+### Public build-script audit: useful references, but not a matching Android 13 manifest
+
+The public `nekoshirro/platform_manifest-joyeuse` repository's `evox-q1/evolution.sh` is a build script for Evolution-X/AOSP Android 16, not the requested MIUI 14 Android 13 port. It pins no immutable commit IDs for the cloned device/vendor/kernel repositories (uses shallow clones), so it is not a reproducible source manifest. It clones newer AOSP-joyeuse device/vendor/common repositories and a different kernel repository/branch, which must not be silently substituted for the 2023 `13-FBEv1` + `vendor_xiaomi_joyeuse` snapshots. The script also contains broad destructive cleanup commands and a hard-coded Telegram bot credential. **The script was not executed and the credential is intentionally not reproduced here.** The credential should be treated as exposed and rotated/revoked by its owner; do not use it or contact the bot.
+
+This repository is evidence that later Joyeuse builds use a separately assembled set of device, common, vendor, and kernel projects, but it does not establish a tested component set for this MIUI 14 cross-device port.
+
 ### Kernel dependency located: prebuilt kernel for `Bianca-13`
 
 The previously missing repository has now been identified: [`nekoshirro/device_xiaomi_joyeuse-kernel`](https://github.com/nekoshirro/device_xiaomi_joyeuse-kernel), branch `Maverick`, head commit `60c8b0bf7ff4ce5e1d803ccb8eb04571ff9d6ba7` (2023-05-18). Its `BoardConfig.mk` points to prebuilt `Image` and `dtb.img`; its `device.mk` packages that Image as the kernel and supplies vendor kernel headers. The device tree's `Bianca-13` branch explicitly inherits this project's `BoardConfig.mk` and `device.mk`, so this is a real declared dependency for that branch—not merely a guessed repo name.
