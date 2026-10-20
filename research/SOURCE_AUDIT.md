@@ -163,3 +163,11 @@ Before moving to a controlled source-inspection/build stage, the project needs a
 5. A packaging design that keeps Joyeuse boot/kernel, device-specific vendor/firmware and partition layout; donor `cupid` device-specific images must not be transplanted.
 
 No automated job should download multi-gigabyte firmware or publish a flashable artifact until these gates are met. No ROM download, source checkout, compilation, phone connection, partition operation, or flashing was performed in this review.
+
+## Build host feasibility (official AOSP guidance)
+
+Google's current AOSP setup guide lists a 64-bit x86 workstation, at least 400 GB free disk (about 250 GB checkout + 150 GB build output), at least 64 GB RAM, and 64-bit Linux with glibc 2.17 or later as its baseline for building current Android source. This is a general current-AOSP baseline, not a guarantee that this Android 13 MIUI port will fit or build with those exact resources; proprietary source unpacking and additional worktrees can require more storage.
+
+Official reference: https://source.android.com/docs/setup/start/requirements
+
+This project has not verified access to a build host meeting those requirements. The existing GitHub Actions workflow is a short metadata-only check and is intentionally not a ROM build runner. Therefore the immediate blocker is not just finding a build command: a suitable, verified Linux build host and pinned source manifest are prerequisites. Do not initiate a full source sync or download the multi-gigabyte donor ROM until the host's disk/RAM capacity and source manifest are established.
