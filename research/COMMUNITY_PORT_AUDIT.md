@@ -41,3 +41,18 @@ Treat this archive as a **research reference only**. Do not label it as our own 
 
 Workflow run: https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39399582768
 Audit workflow: https://github.com/RM007-UI/MIUI-14-CHINA/actions/workflows/audit-existing-joyeuse-port.yml
+
+## Super image metadata inspection (GitHub Actions run 6)
+
+The next read-only inspection of the same archive confirmed:
+
+- `super.img` is a raw (not Android-sparse) logical-partition image.
+- Both liblp geometry copies were found at byte offsets 4096 and 8192; both 52-byte geometry checksums validate.
+- Geometry declares a 65,536-byte metadata area, two metadata slots, and a 4,096-byte logical block size.
+- Metadata slot 0 has LP metadata version 10.0; both its header and table SHA-256 checksums validate.
+- The logical partition table contains four partitions: `system` (1,529,434,112 bytes), `system_ext` (758,718,464 bytes), `vendor` (1,391,788,032 bytes), and `product` (3,914,190,848 bytes).
+- The dynamic group is `qti_dynamic_partitions`; its declared maximum is 8,053,063,680 bytes. The image's sole block device is named `super` and also declares 8,053,063,680 bytes.
+
+These checks validate the container's internal logical-partition metadata; they do **not** validate that it is safe for a particular phone, prove the Android version, or prove successful boot. The next workflow revision temporarily extracts only the mapped `system` logical partition to inspect build properties, then removes it; only the text report is retained.
+
+Run 6: https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39566884259
