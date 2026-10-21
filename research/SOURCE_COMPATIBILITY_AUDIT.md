@@ -85,3 +85,20 @@ References:
 No new image has been built and no device has been flashed. Do not treat the existing community ZIP as a release candidate until the full installer payload can be obtained reliably and its boot image, vendor partition, VINTF declarations, sepolicy, firmware assumptions, and partition layout have been checked against Joyeuse. The current Google Drive rate-limit failure is a transport/access blocker, not a compatibility verdict. Do not bypass it by flashing an unverified mirror.
 
 The next useful automated step is a source-only gate that inventories device-tree partition, fstab, VINTF, sepolicy, and kernel-module configuration at the pinned commit, then compares that inventory to metadata recovered from the actual candidate package. A successful source-pin check alone is insufficient to authorize a build or flash.
+
+
+## Focused configuration review after source-inventory run
+
+The expanded preflight completed successfully on commit `90957865bd75ebe1491b6e04cd441639bcb891dc`:
+https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39568647143
+
+Artifact (text-only, expires 2026-11-04): https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39568647143/artifacts/12331340364
+
+A direct read of the pinned device-tree files adds these concrete checks:
+
+- Device VINTF manifest declares target-level 4 and HIDL HALs for core device functions; the device tree also points to a framework manifest and device compatibility matrix. These declarations need comparison with the donor's actual vendor/system manifests, not just presence checks.
+- `rootdir/etc/fstab.qcom` mounts `system`, `system_ext`, `product`, and `vendor` as logical ext4 partitions in `super`, with AVB-related flags. It also includes metadata, userdata encryption, firmware, and other device-specific mounts. These are critical assumptions for any repackaged image.
+- `BoardConfig.mk` expects boot header version 2, a separated DTBO, AVB enabled, and a 8,589,934,592-byte super partition/group configuration. These are source configuration values; actual phone partition sizes and donor boot/AVB layout must be confirmed independently before any image is approved.
+- The GitHub recursive tree API marked the kernel repository tree as truncated (74,507 entries reported, partial response). Therefore, kernel path inventory is explicitly partial; the exact pinned Makefile and defconfig were read separately.
+
+The preflight passed because all three pinned commits and selected source reads succeeded. It is **not** a compatibility pass. No build or device operation was performed.
