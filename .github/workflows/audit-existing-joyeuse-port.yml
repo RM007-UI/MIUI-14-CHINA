@@ -2,6 +2,9 @@ name: Audit existing Joyeuse-only MIUI 14 China port
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/audit-existing-joyeuse-port.yml"
 
 permissions:
   contents: read
@@ -23,7 +26,13 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check gdown
           mkdir -p audit
-          gdown 'https://drive.google.com/uc?id=1EiJzXG64lIQ4zy7OYlmtTvF8K4Ocrbkd' -O /tmp/joyeuse-miui14-cn.zip
+          if ! gdown 'https://drive.google.com/uc?id=1EiJzXG64lIQ4zy7OYlmtTvF8K4Ocrbkd' -O /tmp/joyeuse-miui14-cn.zip; then
+            echo "Primary Google Drive download failed; trying the public confirmation endpoint once."
+            rm -f /tmp/joyeuse-miui14-cn.zip
+            curl --fail --location --silent --show-error --retry 2 --retry-delay 3 --max-time 900 \
+              'https://drive.usercontent.google.com/download?id=1EiJzXG64lIQ4zy7OYlmtTvF8K4Ocrbkd&export=download&confirm=t' \
+              --output /tmp/joyeuse-miui14-cn.zip
+          fi
           test -s /tmp/joyeuse-miui14-cn.zip
           printf 'Archive bytes: ' > audit/community-port-audit.txt
           stat -c '%s' /tmp/joyeuse-miui14-cn.zip >> audit/community-port-audit.txt
