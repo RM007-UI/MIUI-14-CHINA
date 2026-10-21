@@ -29,6 +29,7 @@ The project has therefore pivoted to the safer and more realistic path:
 - [Inspect Joyeuse MIUI 14 base](https://github.com/RM007-UI/MIUI-14-CHINA/actions/workflows/inspect-joyeuse-base.yml)
 - [Inspect Xiaomi 12 cupid source](https://github.com/RM007-UI/MIUI-14-CHINA/actions/workflows/inspect-cupid-source.yml)
 - [Audit existing Joyeuse-only MIUI China port](https://github.com/RM007-UI/MIUI-14-CHINA/actions/workflows/audit-existing-joyeuse-port.yml)
+- [Audit historical Joyeuse vendor reference](https://github.com/RM007-UI/MIUI-14-CHINA/actions/workflows/audit-joyeuse-vendor-reference.yml)
 - [All workflow runs](https://github.com/RM007-UI/MIUI-14-CHINA/actions)
 
 The Joyeuse workflow reads package metadata and payload declarations through HTTP byte ranges; it is not a ROM builder. Check its latest run before relying on any output.
