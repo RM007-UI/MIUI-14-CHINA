@@ -79,3 +79,11 @@ GitHub Actions run 9 attempted to reopen the public archive to inspect the mappe
 The audit workflow is now **manual-only** so routine repository edits do not trigger repeated 3.8 GB downloads. Retry it from the Actions page after the public source becomes accessible again.
 
 Run 9 (download blocked): https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39567399901
+
+## Donor build identity and flashing risk
+
+The system build ID `V14.0.10.0.TLCCNXM` is independently indexed by XiaomiFirmwareUpdater as **Xiaomi 12 (codename `cupid`) China MIUI 14 Android 13**, not a native Joyeuse firmware release. Reference: https://github.com/XiaomiFirmwareUpdater/xmfirmwareupdater.github.io/blob/de667548e558ec86a30b7da56e07ac43973efbc9/data/devices/miui14.yml
+
+The archive's installer script writes the entire `super.img` to `/dev/block/bootdevice/by-name/super`, not just the `system` partition. That means the image includes `system`, `system_ext`, `vendor`, and `product` logical partitions, all of which must be inspected for Joyeuse compatibility before considering installation. The build ID alone does not prove those partitions are donor hardware blobs, but it makes checking `vendor` device identity, VINTF manifests, HALs, init files, and partition geometry essential.
+
+**Current safety decision: do not flash this archive.** It has not passed vendor/system compatibility review, and its boot image marker points to the Android 12 Global Joyeuse base while its system is Android 13 China MIUI. The source download was rate-limited during the vendor follow-up, so no conclusion about the archive's vendor partition can yet be made.
