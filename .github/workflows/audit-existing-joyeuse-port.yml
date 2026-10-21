@@ -93,6 +93,30 @@ jobs:
           for s in hits[:35]: print(s[:240])
           PY
           rm -f /tmp/joyeuse-boot.img
+          echo "Super image header and LP metadata marker scan:" >> audit/community-port-audit.txt
+          python - <<'PY' >> audit/community-port-audit.txt
+          import zipfile, struct
+          p = "/tmp/joyeuse-miui14-cn.zip"
+          with zipfile.ZipFile(p) as z:
+              info = z.getinfo("super.img")
+              print("super.img declared bytes:", info.file_size)
+              with z.open(info) as src:
+                  head = src.read(65536)
+          print("First 4 bytes:", head[:4].hex(), repr(head[:4]))
+          if len(head) >= 4 and head[:4] == bytes.fromhex("3aff26ed"):
+              print("Image format: Android sparse image")
+          else:
+              print("Image format: not identified as Android sparse from initial magic")
+          offsets = [i for i in range(len(head)) if head.startswith(b"gDla", i)]
+          print("LP geometry magic offsets in first 64 KiB:", offsets[:20])
+          if offsets:
+              for off in offsets[:2]:
+                  if off + 52 <= len(head):
+                      vals = struct.unpack_from("<I I I I I I I I I I I I I", head, off)
+                      print("LP geometry fields at", off, ":", vals)
+          else:
+              print("No liblp geometry magic in first 64 KiB; may need sparse conversion or format-specific inspection.")
+          PY
           echo "Audit completed. ROM and extracted boot image are not published or uploaded as artifacts."
           rm -f /tmp/joyeuse-miui14-cn.zip
 
