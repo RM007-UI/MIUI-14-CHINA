@@ -49,3 +49,15 @@ These are candidate inputs only, not yet approved as a compatible MIUI port:
 - Vendor makefile: https://github.com/nekoshirro/vendor_xiaomi_joyeuse/blob/13/joyeuse-vendor.mk
 - Kernel config: https://github.com/ArrowOS-Devices/android_kernel_xiaomi_sm6250/blob/arrow-13.0/arch/arm64/configs/cust_defconfig
 - Kernel Makefile: https://github.com/ArrowOS-Devices/android_kernel_xiaomi_sm6250/blob/arrow-13.0/Makefile
+
+## Automated source-pin preflight
+
+On 2026-10-21, the lightweight GitHub Actions workflow verified that all three pinned commit SHAs exist in their stated repositories and inspected selected source files without cloning full source trees:
+
+- Device tree: exact commit verified; product targets are `aosp_joyeuse`, inherit `vendor/aosp/config/common_full_phone.mk`, and declare a Pixel 7 Pro fingerprint override.
+- Vendor: exact commit verified; repository is generated from proprietary blobs, but this does not prove that the blobs match the target MIUI Android 13 system.
+- Kernel: exact commit verified; Linux version is 4.14.304 and its local-version string references a QSSI 13-era Qualcomm base.
+
+Successful preflight run: https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39567928418
+
+Artifact: `joyeuse-source-preflight`, text-only, expires 2026-11-04. This is identity and metadata validation only; it is not a build or boot test.
