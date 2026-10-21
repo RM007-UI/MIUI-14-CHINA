@@ -93,29 +93,109 @@ jobs:
           for s in hits[:35]: print(s[:240])
           PY
           rm -f /tmp/joyeuse-boot.img
-          echo "Super image header and LP metadata marker scan:" >> audit/community-port-audit.txt
+          echo "Super image geometry and logical-partition metadata:" >> audit/community-port-audit.txt
           python - <<'PY' >> audit/community-port-audit.txt
-          import zipfile, struct
+          import zipfile, struct, hashlib
           p = "/tmp/joyeuse-miui14-cn.zip"
+          GEOM_MAGIC = 0x616c4467
+          HEADER_MAGIC = 0x414c5030
+          def cstr(b):
+              return b.split(b"\\0", 1)[0].decode("ascii", "replace")
           with zipfile.ZipFile(p) as z:
               info = z.getinfo("super.img")
               print("super.img declared bytes:", info.file_size)
               with z.open(info) as src:
-                  head = src.read(65536)
+                  # Geometry copies and metadata slots are at the beginning of a raw LP super image.
+                  head = src.read(256 * 1024)
           print("First 4 bytes:", head[:4].hex(), repr(head[:4]))
-          if len(head) >= 4 and head[:4] == bytes.fromhex("3aff26ed"):
-              print("Image format: Android sparse image")
+          if head[:4] == bytes.fromhex("3aff26ed"):
+              print("Image format: Android sparse; this parser expects raw super.img and will not guess-convert it.")
           else:
-              print("Image format: not identified as Android sparse from initial magic")
-          offsets = [i for i in range(len(head)) if head.startswith(b"gDla", i)]
-          print("LP geometry magic offsets in first 64 KiB:", offsets[:20])
-          if offsets:
-              for off in offsets[:2]:
-                  if off + 52 <= len(head):
-                      vals = struct.unpack_from("<I I I I I I I I I I I I I", head, off)
-                      print("LP geometry fields at", off, ":", vals)
+              print("Image format: raw/non-sparse based on initial magic")
+          geom = None
+          for off in (4096, 8192):
+              if off + 52 > len(head): continue
+              magic, struct_size = struct.unpack_from("<II", head, off)
+              if magic != GEOM_MAGIC: continue
+              raw = bytearray(head[off:off+struct_size])
+              expected = bytes(raw[8:40])
+              raw[8:40] = bytes(32)
+              valid = hashlib.sha256(raw).digest() == expected
+              meta_max, slots, block_size = struct.unpack_from("<III", head, off+40)
+              print(f"Geometry at {off}: struct_size={struct_size}, checksum_valid={valid}, metadata_max_size={meta_max}, metadata_slots={slots}, logical_block_size={block_size}")
+              if valid and struct_size == 52:
+                  geom = (meta_max, slots, block_size)
+          if not geom:
+              print("ERROR: no checksum-valid liblp geometry found; logical partition table was not parsed.")
           else:
-              print("No liblp geometry magic in first 64 KiB; may need sparse conversion or format-specific inspection.")
+              meta_max, slots, block_size = geom
+              # Each metadata slot follows the two 4 KiB geometry blocks.
+              metadata_base = 3 * 4096
+              for slot in range(min(slots, 4)):
+                  off = metadata_base + slot * meta_max
+                  if off + 128 > len(head):
+                      print(f"Slot {slot}: metadata header outside inspected range")
+                      continue
+                  magic, major, minor, header_size = struct.unpack_from("<IHHI", head, off)
+                  if magic != HEADER_MAGIC:
+                      print(f"Slot {slot} at {off}: no LP metadata header (magic={magic:#x})")
+                      continue
+                  if header_size < 128 or header_size > 4096 or off + header_size > len(head):
+                      print(f"Slot {slot}: implausible header_size={header_size}")
+                      continue
+                  header = bytearray(head[off:off+header_size])
+                  expected_header = bytes(header[12:44])
+                  header[12:44] = bytes(32)
+                  header_ok = hashlib.sha256(header).digest() == expected_header
+                  tables_size = struct.unpack_from("<I", head, off+44)[0]
+                  expected_tables = bytes(head[off+48:off+80])
+                  tables_start = off + header_size
+                  tables = head[tables_start:tables_start+tables_size]
+                  tables_ok = len(tables) == tables_size and hashlib.sha256(tables).digest() == expected_tables
+                  print(f"Slot {slot}: LP metadata v{major}.{minor}, header_size={header_size}, tables_size={tables_size}, header_checksum_valid={header_ok}, tables_checksum_valid={tables_ok}")
+                  if not (header_ok and tables_ok):
+                      continue
+                  descs = [struct.unpack_from("<III", head, off+pos) for pos in (80,92,104,116)]
+                  names = ("partitions","extents","groups","block_devices")
+                  tables_data = {}
+                  for name, (rel, count, entsize) in zip(names, descs):
+                      a = rel
+                      b = rel + count * entsize
+                      if b > len(tables) or entsize == 0:
+                          print(f"  {name}: invalid table bounds rel={rel} count={count} entry_size={entsize}")
+                          tables_data[name] = []
+                          continue
+                      entries = []
+                      for i in range(count):
+                          e = tables[a+i*entsize:a+(i+1)*entsize]
+                          entries.append(e)
+                      tables_data[name] = entries
+                      print(f"  {name}: count={count}, entry_size={entsize}")
+                  groups = []
+                  for e in tables_data["groups"]:
+                      if len(e) >= 48:
+                          name = cstr(e[:36]); flags = struct.unpack_from("<I",e,36)[0]; maxsize = struct.unpack_from("<Q",e,40)[0]
+                          groups.append(name)
+                          print(f"    group: {name}, max_size={maxsize}, flags={flags}")
+                  devices = []
+                  for e in tables_data["block_devices"]:
+                      if len(e) >= 64:
+                          first, align, alignoff, size = struct.unpack_from("<QIIQ",e,0)
+                          name = cstr(e[24:60]); flags = struct.unpack_from("<I",e,60)[0]
+                          devices.append((name,size))
+                          print(f"    block_device: {name}, declared_size={size}, first_logical_sector={first}, alignment={align}, flags={flags}")
+                  extents = []
+                  for e in tables_data["extents"]:
+                      if len(e) >= 24:
+                          sectors, target_type, target_data, target_source = struct.unpack_from("<QIQI",e,0)
+                          extents.append((sectors,target_type,target_data,target_source))
+                  for e in tables_data["partitions"]:
+                      if len(e) >= 52:
+                          name = cstr(e[:36]); attrs, first, count, group_idx = struct.unpack_from("<IIII",e,36)
+                          size_sectors = sum(extents[i][0] for i in range(first, min(first+count,len(extents))))
+                          print(f"    partition: {name}, size_bytes={size_sectors*512}, extents={count}, group_index={group_idx}, attributes={attrs}")
+                  # A checksum-valid copy is enough to report a table; avoid duplicate noisy output.
+                  break
           PY
           echo "Audit completed. ROM and extracted boot image are not published or uploaded as artifacts."
           rm -f /tmp/joyeuse-miui14-cn.zip
