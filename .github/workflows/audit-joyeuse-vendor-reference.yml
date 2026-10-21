@@ -2,6 +2,9 @@ name: Audit historical Joyeuse vendor reference
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/audit-joyeuse-vendor-reference.yml"
 
 permissions:
   contents: read
