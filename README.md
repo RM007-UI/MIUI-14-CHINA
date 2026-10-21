@@ -22,6 +22,7 @@ The project has therefore pivoted to the safer and more realistic path:
 - The Xiaomi 12 source package metadata audit is recorded in [`research/CUPID_PAYLOAD_AUDIT.md`](research/CUPID_PAYLOAD_AUDIT.md).
 - The recommended porting and verification gates are recorded in [`research/PORT_STRATEGY.md`](research/PORT_STRATEGY.md).
 - Candidate device-tree, vendor-blob, and kernel sources have been inspected; they remain AOSP-derived and unvalidated for MIUI. See [`research/SOURCE_COMPATIBILITY_AUDIT.md`](research/SOURCE_COMPATIBILITY_AUDIT.md).
+- Candidate source revisions are pinned in [`manifests/joyeuse-a13-candidate.json`](manifests/joyeuse-a13-candidate.json); a lightweight GitHub Actions preflight verifies those exact commits and records compatibility indicators without attempting a full ROM build.
 
 ## Automated metadata checks
 
