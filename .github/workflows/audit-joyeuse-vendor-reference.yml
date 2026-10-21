@@ -1,0 +1,71 @@
+name: Audit historical Joyeuse vendor reference
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-vendor-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Download and verify public vendor reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit /tmp/vendor-ref
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 3 --max-time 900 \
+            'https://sourceforge.net/projects/rafi-builds/files/Miatoll/Vendor/Global/joyeuse%20vendor%20V2.zip/download' \
+            --output /tmp/joyeuse-vendor-v2.zip
+          echo "Downloaded bytes: $(stat -c '%s' /tmp/joyeuse-vendor-v2.zip)" | tee audit/vendor-reference-audit.txt
+          echo "SHA-256:" | tee -a audit/vendor-reference-audit.txt
+          sha256sum /tmp/joyeuse-vendor-v2.zip | tee -a audit/vendor-reference-audit.txt
+          echo "Expected SourceForge SHA-256: 0a97b71f57ba3146cd510d9437af295d2bdfc6eb4fd074c5111e2ba317a22a3e" | tee -a audit/vendor-reference-audit.txt
+          echo "ZIP entries:" | tee -a audit/vendor-reference-audit.txt
+          zipinfo -l /tmp/joyeuse-vendor-v2.zip | tee -a audit/vendor-reference-audit.txt
+          python - <<'PY' | tee -a audit/vendor-reference-audit.txt
+          import zipfile, os, re, subprocess, shutil
+          p = "/tmp/joyeuse-vendor-v2.zip"
+          with zipfile.ZipFile(p) as z:
+              names = z.namelist()
+              print("\nArchive inventory:", len(names), "entries")
+              for n in names:
+                  if n.lower().endswith((".img", ".prop", ".txt", ".sh", ".dat", ".bin")) or "manifest" in n.lower() or "fstab" in n.lower():
+                      print(f"{n}\t{z.getinfo(n).file_size} bytes")
+              candidates = [n for n in names if n.lower().endswith(".img") and any(k in n.lower() for k in ("vendor", "boot", "vbmeta", "dtbo"))]
+              for n in candidates[:8]:
+                  info = z.getinfo(n)
+                  if info.file_size > 2_000_000_000:
+                      print("Skipping oversized candidate:", n, info.file_size)
+                      continue
+                  out = "/tmp/vendor-ref/" + os.path.basename(n)
+                  with z.open(n) as src, open(out, "wb") as dst:
+                      shutil.copyfileobj(src, dst, 1024*1024)
+                  print("\nImage:", n, "bytes:", os.path.getsize(out))
+                  if shutil.which("file"):
+                      print("file:", subprocess.run(["file", out],capture_output=True,text=True).stdout.strip())
+                  if os.path.basename(n).lower().startswith("vendor") and shutil.which("debugfs"):
+                      for path in ("/build.prop", "/etc/build.prop", "/vendor/build.prop", "/etc/vintf/manifest.xml", "/etc/vintf/compatibility_matrix.xml", "/vendor/etc/vintf/manifest.xml"):
+                          proc = subprocess.run(["debugfs","-R",f"cat {path}",out],capture_output=True,text=True)
+                          lines = proc.stdout.splitlines()
+                          if path.endswith("build.prop"):
+                              keys = ("ro.vendor.build.version.release=", "ro.vendor.build.version.sdk=", "ro.vendor.build.version.incremental=", "ro.vendor.build.fingerprint=", "ro.vendor.build.security_patch=", "ro.vndk.version=", "ro.product.vendor.device=", "ro.product.vendor.name=", "ro.product.vendor.model=")
+                              hits = [x for x in lines if any(k in x for k in keys)]
+                              if hits:
+                                  print("Properties from", path)
+                                  print("\n".join(hits[:60]))
+                          elif lines and not any("File not found" in x for x in lines[:2]):
+                              print("Found readable", path, "lines:", len(lines))
+                              print("\n".join(lines[:12]))
+                  os.remove(out)
+          PY
+          echo "Inspection is read-only. No image is flashed or published." | tee -a audit/vendor-reference-audit.txt
+      - name: Upload text audit only
+        uses: actions/upload-artifact@v4
+        with:
+          name: joyeuse-vendor-reference-audit
+          path: audit/vendor-reference-audit.txt
+          if-no-files-found: error
+          retention-days: 14
