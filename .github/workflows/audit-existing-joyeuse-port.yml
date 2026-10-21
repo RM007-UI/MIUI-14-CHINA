@@ -100,7 +100,7 @@ jobs:
           GEOM_MAGIC = 0x616c4467
           HEADER_MAGIC = 0x414c5030
           def cstr(b):
-              return b.split(b"\\0", 1)[0].decode("ascii", "replace")
+              return b.split(b"\x00", 1)[0].decode("ascii", "replace")
           with zipfile.ZipFile(p) as z:
               info = z.getinfo("super.img")
               print("super.img declared bytes:", info.file_size)
