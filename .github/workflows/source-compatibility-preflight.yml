@@ -1,0 +1,91 @@
+name: Verify pinned Joyeuse source candidates
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Fetch exact candidate source commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-audit
+          python - <<'PY'
+          import json
+          m = json.load(open("manifests/joyeuse-a13-candidate.json"))
+          with open("/tmp/sources.tsv", "w") as f:
+              for s in m["sources"]:
+                  f.write("\t".join([s["name"], s["repository"], s["commit"], s["branch"]]) + "\n")
+          PY
+          while IFS=$'\t' read -r name url sha branch; do
+            echo "Fetching $name at $sha"
+            mkdir -p "source-audit/src/$name"
+            git -C "source-audit/src/$name" init -q
+            git -C "source-audit/src/$name" remote add origin "$url"
+            if ! git -C "source-audit/src/$name" fetch --quiet --depth=1 origin "$sha"; then
+              echo "ERROR: unable to fetch pinned commit $sha for $name" | tee -a source-audit/report.txt
+              exit 1
+            fi
+            git -C "source-audit/src/$name" checkout --quiet --detach FETCH_HEAD
+            actual="$(git -C "source-audit/src/$name" rev-parse HEAD)"
+            printf '%s expected=%s actual=%s\n' "$name" "$sha" "$actual" | tee -a source-audit/report.txt
+            test "$actual" = "$sha"
+          done < /tmp/sources.tsv
+
+      - name: Record compatibility indicators (no build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo
+            echo "=== Device tree indicators ==="
+            cd source-audit/src/device_tree
+            for f in AndroidProducts.mk aosp_joyeuse.mk device.mk BoardConfig.mk proprietary-files.txt; do
+              if [ -f "$f" ]; then
+                echo "--- $f"
+                grep -nE 'aosp_joyeuse|common_full_phone|fingerprint|V12\.5\.4\.0\.RJZIDXM|TARGET_ARCH|TARGET_KERNEL_SOURCE|BOARD_SUPER_PARTITION_SIZE|BOARD_USES_METADATA_PARTITION|proprietary' "$f" | head -n 60 || true
+              fi
+            done
+            cd ../../..
+            echo
+            echo "=== Vendor source indicators ==="
+            cd source-audit/src/vendor
+            find . -maxdepth 3 -type f \( -name '*vendor.mk' -o -name 'Android.mk' -o -name 'Android.bp' \) | head -n 25
+            grep -R -nE 'V12\.5\.4\.0|V13\.|ro\.vendor\.build\.version|joyeuse' --include='*.mk' --include='*.prop' . | head -n 80 || true
+            cd ../../..
+            echo
+            echo "=== Kernel indicators ==="
+            cd source-audit/src/kernel
+            grep -nE '^VERSION =|^PATCHLEVEL =|^SUBLEVEL =|^EXTRAVERSION =' Makefile | head -n 10 || true
+            if [ -f arch/arm64/configs/cust_defconfig ]; then
+              grep -nE 'LOCALVERSION|QSSI|LA\.UM|CONFIG_LOCALVERSION' arch/arm64/configs/cust_defconfig | head -n 30 || true
+            fi
+            cd ../../..
+            echo
+            echo "=== Decision ==="
+            echo "This job verifies pinned source identities and records selected metadata only."
+            echo "It does not build Android, validate bootability, or certify MIUI compatibility."
+          } | tee -a source-audit/report.txt
+
+      - name: Remove source checkout trees from artifact
+        if: always()
+        shell: bash
+        run: rm -rf source-audit/src
+
+      - name: Upload text-only report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: joyeuse-source-preflight
+          path: source-audit/report.txt
+          if-no-files-found: warn
+          retention-days: 14
