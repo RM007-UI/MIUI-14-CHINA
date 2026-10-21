@@ -87,3 +87,17 @@ The system build ID `V14.0.10.0.TLCCNXM` is independently indexed by XiaomiFirmw
 The archive's installer script writes the entire `super.img` to `/dev/block/bootdevice/by-name/super`, not just the `system` partition. That means the image includes `system`, `system_ext`, `vendor`, and `product` logical partitions, all of which must be inspected for Joyeuse compatibility before considering installation. The build ID alone does not prove those partitions are donor hardware blobs, but it makes checking `vendor` device identity, VINTF manifests, HALs, init files, and partition geometry essential.
 
 **Current safety decision: do not flash this archive.** It has not passed vendor/system compatibility review, and its boot image marker points to the Android 12 Global Joyeuse base while its system is Android 13 China MIUI. The source download was rate-limited during the vendor follow-up, so no conclusion about the archive's vendor partition can yet be made.
+
+
+## Download retry and alternate-source check (2026-10-21)
+
+A new automated retry was committed as `4a736c9c7c5b7c55fa7c26709bff6a35f7c16c31`. It now tries the normal Google Drive client and then the public confirmation endpoint. The retry still failed: Google Drive explicitly returned its "too many users have viewed or downloaded this file recently" quota response, and the confirmation endpoint exited with curl code 9 before producing a usable archive.
+
+The public post's Pixeldrain link was also checked; the published URL resolves to a 404 when followed from the post. The historical June 2023 Joyeuse links from TheHan45 were checked as well; both indexed Google Drive files returned 404. These are access/source availability failures, not evidence about the ROM's technical quality.
+
+- Latest retry run: https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39569569863
+- Retry workflow: https://github.com/RM007-UI/MIUI-14-CHINA/actions/workflows/audit-existing-joyeuse-port.yml
+- Current public post listing the 2026 beta: https://t.me/s/RN9ProUpdate?before=7306
+- Historical port listing: https://telegram.me/s/RN9ProUpdate/7152?q=%23A13
+
+The workflow change itself passed the repository's metadata checks, but the archive inspection step did not complete. No image was built or flashed. Next meaningful progress requires a functioning source archive or a maintainer-provided verified mirror; repeatedly retrying the same rate-limited file is not productive.
