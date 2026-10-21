@@ -61,7 +61,39 @@ jobs:
                   except Exception as e:
                       print("Could not read script:", type(e).__name__)
           PY
-          echo "Audit completed. The ROM archive itself is not published or uploaded as an artifact."
+          echo "Boot image header inspection:" >> audit/community-port-audit.txt
+          python - <<'PY' >> audit/community-port-audit.txt
+          import zipfile, struct, hashlib, os
+          p = "/tmp/joyeuse-miui14-cn.zip"
+          out = "/tmp/joyeuse-boot.img"
+          with zipfile.ZipFile(p) as z:
+              info = z.getinfo("images/boot.img")
+              with z.open(info) as src, open(out, "wb") as dst:
+                  while True:
+                      chunk = src.read(1024 * 1024)
+                      if not chunk: break
+                      dst.write(chunk)
+          with open(out, "rb") as f:
+              head = f.read(4096)
+          print("Extracted boot.img bytes:", os.path.getsize(out))
+          print("boot.img SHA-256:", hashlib.sha256(open(out, "rb").read()).hexdigest())
+          print("Boot magic:", repr(head[:8]))
+          if head[:8] == b"ANDROID!":
+              vals = struct.unpack_from("<10I", head, 8)
+              print("Legacy boot header fields (kernel_size, kernel_addr, ramdisk_size, ramdisk_addr, second_size, second_addr, tags_addr, page_size, header_version, os_version):", vals)
+              print("Header version field:", vals[8])
+          else:
+              print("Not a legacy ANDROID! header; needs format-specific parser.")
+          # Report only a small selection of printable kernel/build markers.
+          data = open(out, "rb").read()
+          import re
+          strings = [x.decode("ascii", "replace") for x in re.findall(rb"[ -~]{8,}", data)]
+          hits = [s for s in strings if any(k in s.lower() for k in ("linux version", "androidboot.", "joyeuse", "miatoll", "clang version"))]
+          print("Selected printable markers:")
+          for s in hits[:35]: print(s[:240])
+          PY
+          rm -f /tmp/joyeuse-boot.img
+          echo "Audit completed. ROM and extracted boot image are not published or uploaded as artifacts."
           rm -f /tmp/joyeuse-miui14-cn.zip
 
       - name: Upload text audit only
