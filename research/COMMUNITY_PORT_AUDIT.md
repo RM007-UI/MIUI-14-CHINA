@@ -70,4 +70,12 @@ This independently supports that the **system partition itself is Android 13 Chi
 
 Run 8: https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39567162112
 
-The next revision will inspect vendor build properties to assess whether the vendor stack agrees with this Android 13 system.
+A follow-up attempt to inspect vendor build properties was blocked before analysis because Google Drive refused the public download after repeated accesses. Vendor compatibility therefore remains unverified; the workflow has been changed to manual-only to avoid repeated large downloads.
+
+## Vendor inspection attempt and rate limit
+
+GitHub Actions run 9 attempted to reopen the public archive to inspect the mapped `vendor` partition, but Google Drive's public-download endpoint returned a rate-limit/access error before the archive could be downloaded. No vendor properties were obtained from that run. This is a source-host limitation, not evidence that the vendor image is bad.
+
+The audit workflow is now **manual-only** so routine repository edits do not trigger repeated 3.8 GB downloads. Retry it from the Actions page after the public source becomes accessible again.
+
+Run 9 (download blocked): https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39567399901
