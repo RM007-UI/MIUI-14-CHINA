@@ -53,7 +53,7 @@ The next read-only inspection of the same archive confirmed:
 - The logical partition table contains four partitions: `system` (1,529,434,112 bytes), `system_ext` (758,718,464 bytes), `vendor` (1,391,788,032 bytes), and `product` (3,914,190,848 bytes).
 - The dynamic group is `qti_dynamic_partitions`; its declared maximum is 8,053,063,680 bytes. The image's sole block device is named `super` and also declares 8,053,063,680 bytes.
 
-These checks validate the container's internal logical-partition metadata; they do **not** validate that it is safe for a particular phone, prove the Android version, or prove successful boot. The next workflow revision temporarily extracts only the mapped `system` logical partition to inspect build properties, then removes it; only the text report is retained.
+These checks validate the container's internal logical-partition metadata; they do **not** validate that it is safe for a particular phone or prove successful boot. A later read-only inspection temporarily extracted the mapped `system` logical partition to inspect build properties, then removed it; only the text report was retained.
 
 Run 6: https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39566884259
 
