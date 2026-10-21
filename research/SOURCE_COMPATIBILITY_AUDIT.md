@@ -61,3 +61,27 @@ On 2026-10-21, the lightweight GitHub Actions workflow verified that all three p
 Successful preflight run: https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39567928418
 
 Artifact: `joyeuse-source-preflight`, text-only, expires 2026-11-04. This is identity and metadata validation only; it is not a build or boot test.
+
+
+## Additional compatibility gate (2026-10-21)
+
+A second direct read of the pinned source files reconfirmed the following details:
+
+- `BoardConfig.mk` is a conventional Android device build configuration; it does not itself establish compatibility with the MIUI donor's proprietary framework.
+- `AndroidProducts.mk` exposes only `aosp_joyeuse` lunch targets. A real MIUI port needs a deliberately reviewed product definition rather than simply building this target and renaming the output.
+- `proprietary-files.txt` explicitly attributes the unpinned proprietary blobs to Joyeuse Android 11 Indonesia firmware `V12.5.4.0.RJZIDXM`. This is a concrete provenance mismatch to investigate against the Android 13 MIUI system, not proof that every individual blob is incompatible.
+- The vendor makefile is generated packaging metadata; its branch name `13` cannot establish the Android version or firmware provenance of every included binary.
+
+### Direct Joyeuse port reference
+
+A public Redmi Note 9 Pro updates channel indexed a Joyeuse-only MIUI 14 China Android 13 weekly port by TheHan45 (build `V14.0.23.6.5.DEV`, June 2023), and a newer community listing describes `V14.0.10.0.TLCCNXM` as a Joyeuse-only beta dated 2026-10-16 with reported Setup Wizard and NFC issues. These posts establish that community ports have been announced; they do **not** establish that their downloads are still available, authentic, safe, or compatible with this phone's current state.
+
+References:
+- Historical Android 13 Joyeuse port listing: https://telegram.me/s/RN9ProUpdate/7152?q=%23A13
+- Newer beta listing and reported bugs: https://en.tgdio.com/channel/%40rn9proupdate/7305
+
+### Decision / next gate
+
+No new image has been built and no device has been flashed. Do not treat the existing community ZIP as a release candidate until the full installer payload can be obtained reliably and its boot image, vendor partition, VINTF declarations, sepolicy, firmware assumptions, and partition layout have been checked against Joyeuse. The current Google Drive rate-limit failure is a transport/access blocker, not a compatibility verdict. Do not bypass it by flashing an unverified mirror.
+
+The next useful automated step is a source-only gate that inventories device-tree partition, fstab, VINTF, sepolicy, and kernel-module configuration at the pinned commit, then compares that inventory to metadata recovered from the actual candidate package. A successful source-pin check alone is insufficient to authorize a build or flash.
