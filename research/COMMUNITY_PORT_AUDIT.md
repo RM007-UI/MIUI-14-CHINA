@@ -101,3 +101,16 @@ The public post's Pixeldrain link was also checked; the published URL resolves t
 - Historical port listing: https://telegram.me/s/RN9ProUpdate/7152?q=%23A13
 
 The workflow change itself passed the repository's metadata checks, but the archive inspection step did not complete. No image was built or flashed. Next meaningful progress requires a functioning source archive or a maintainer-provided verified mirror; repeatedly retrying the same rate-limited file is not productive.
+
+
+## Retry attempt 2 and reference vendor lead (2026-10-21)
+
+The public Drive mirror is now confirmed to serve the 3.6 GB archive landing/confirmation page in a browser, but the GitHub-hosted runner still cannot retrieve the bytes: `gdown` returns Google's per-file download quota error and the direct confirmation request exits with curl code 9. This is an upstream download quota/access issue, not a checksum or archive parsing failure. Re-running the same download does not change that result.
+
+- Retry attempt 2 (failed at download step): https://github.com/RM007-UI/MIUI-14-CHINA/actions/runs/39569569863
+- Browser-visible Google Drive confirmation page: https://drive.usercontent.google.com/download?id=1EiJzXG64lIQ4zy7OYlmtTvF8K4Ocrbkd&export=download&confirm=t
+- The PixelDrain URL embedded in the public announcement returns 404: https://pixeldrain.com/u/uLCE2Ji5
+
+A separate public reference archive, `joyeuse vendor V2.zip`, is hosted by RAFI-Builds on SourceForge and has a published SHA-256 of `0a97b71f57ba3146cd510d9437af295d2bdfc6eb4fd074c5111e2ba317a22a3e`: https://sourceforge.net/projects/rafi-builds/files/Miatoll/Vendor/Global/joyeuse%20vendor%20V2.zip/download . It is only a reference lead: its public listing does not establish that it is the exact vendor used by the October 2026 MIUI 14 Android 13 beta, so it must not be substituted into the port without inspecting its build properties, blobs, VINTF, and provenance.
+
+**Current blocker:** exact beta archive bytes or a maintainer-confirmed alternate mirror are still required to verify its vendor partition. No flashable build has been produced.
