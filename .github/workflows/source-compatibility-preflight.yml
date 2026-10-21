@@ -2,6 +2,10 @@ name: Verify pinned Joyeuse source candidates
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - "manifests/joyeuse-a13-candidate.json"
+      - ".github/workflows/source-compatibility-preflight.yml"
 
 permissions:
   contents: read
