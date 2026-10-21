@@ -189,29 +189,29 @@ jobs:
                       if len(e) >= 24:
                           sectors, target_type, target_data, target_source = struct.unpack_from("<QIQI",e,0)
                           extents.append((sectors,target_type,target_data,target_source))
-                  system_extents = []
+                  vendor_extents = []
                   for e in tables_data["partitions"]:
                       if len(e) >= 52:
                           name = cstr(e[:36]); attrs, first, count, group_idx = struct.unpack_from("<IIII",e,36)
                           part_extents = extents[first:min(first+count,len(extents))]
                           size_sectors = sum(x[0] for x in part_extents)
                           print(f"    partition: {name}, size_bytes={size_sectors*512}, extents={count}, group_index={group_idx}, attributes={attrs}")
-                          if name == "system":
-                              system_extents = part_extents
-                  if system_extents:
-                      out = "/tmp/joyeuse-system.img"
-                      print("Extracting logical system partition temporarily for property inspection; it will not be uploaded.")
+                          if name == "vendor":
+                              vendor_extents = part_extents
+                  if vendor_extents:
+                      out = "/tmp/joyeuse-vendor.img"
+                      print("Extracting logical vendor partition temporarily for read-only property inspection; it will not be uploaded.")
                       with zipfile.ZipFile(p) as z, z.open("super.img") as src, open(out,"wb") as dst:
-                          for sectors, target_type, target_data, target_source in system_extents:
+                          for sectors, target_type, target_data, target_source in vendor_extents:
                               if target_type == 0 and target_source == 0:
                                   physical_offset = target_data * 512
                                   byte_count = sectors * 512
-                                  print(f"  system extent: physical_offset={physical_offset}, bytes={byte_count}, target=linear")
+                                  print(f"  vendor extent: physical_offset={physical_offset}, bytes={byte_count}, target=linear")
                                   src.seek(physical_offset)
                                   remaining = byte_count
                                   while remaining:
                                       chunk = src.read(min(1024*1024, remaining))
-                                      if not chunk: raise RuntimeError("Unexpected end while extracting system extent")
+                                      if not chunk: raise RuntimeError("Unexpected end while extracting vendor extent")
                                       dst.write(chunk)
                                       remaining -= len(chunk)
                               elif target_type == 1:
@@ -222,26 +222,27 @@ jobs:
                                       dst.write(zero[:chunk])
                                       remaining -= chunk
                               else:
-                                  raise RuntimeError(f"Unsupported system extent mapping type={target_type}, source={target_source}")
+                                  raise RuntimeError(f"Unsupported vendor extent mapping type={target_type}, source={target_source}")
                       import os, shutil, subprocess
-                      print("Temporary system image bytes:", os.path.getsize(out))
+                      print("Temporary vendor image bytes:", os.path.getsize(out))
                       if shutil.which("file"):
                           desc = subprocess.run(["file", out], capture_output=True, text=True).stdout.strip()
-                          print("system filesystem type:", desc)
+                          print("vendor filesystem type:", desc)
                       if shutil.which("debugfs"):
-                          for path in ("/build.prop", "/system/build.prop", "/etc/build.prop"):
+                          for path in ("/build.prop", "/etc/build.prop", "/vendor/build.prop"):
                               proc = subprocess.run(["debugfs", "-R", f"cat {path}", out], capture_output=True, text=True)
-                              hits = [line for line in proc.stdout.splitlines() if any(k in line for k in ("ro.build.version.release=", "ro.build.version.sdk=", "ro.build.version.incremental=", "ro.build.fingerprint=", "ro.build.version.security_patch=", "ro.miui.ui.version.name=", "ro.miui.ui.version.code=", "ro.product.mod_device=", "ro.product.device="))]
+                              keys = ("ro.vendor.build.version.release=", "ro.vendor.build.version.sdk=", "ro.vendor.build.version.incremental=", "ro.vendor.build.fingerprint=", "ro.vendor.build.security_patch=", "ro.vndk.version=", "ro.product.vendor.device=", "ro.product.vendor.name=", "ro.product.vendor.model=", "ro.build.version.release=", "ro.build.version.sdk=", "ro.build.version.incremental=", "ro.build.fingerprint=", "ro.build.version.security_patch=")
+                              hits = [line for line in proc.stdout.splitlines() if any(k in line for k in keys)]
                               if hits:
-                                  print(f"Build properties found in {path}:")
-                                  for line in hits[:40]: print("  " + line[:260])
+                                  print(f"Vendor build properties found in {path}:")
+                                  for line in hits[:50]: print("  " + line[:260])
                                   break
                           else:
-                              print("No expected build properties found through ext4 debugfs; filesystem may be non-ext4 or properties may be stored elsewhere.")
+                              print("No expected vendor build properties found through ext4 debugfs; filesystem may be non-ext4 or properties may be stored elsewhere.")
                       else:
-                          print("debugfs unavailable on runner; system filesystem properties were not decoded.")
+                          print("debugfs unavailable on runner; vendor filesystem properties were not decoded.")
                       os.remove(out)
-                      print("Temporary system image removed.")
+                      print("Temporary vendor image removed.")
                   # A checksum-valid copy is enough to report a table; avoid duplicate noisy output.
                   break
           PY
