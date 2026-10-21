@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "target": {
+    "device": "joyeuse",
+    "platform": "sm6250",
+    "rom_family": "MIUI 14 China port",
+    "android_target": 13,
+    "slot_layout": "A-only",
+    "warning": "Candidate source pins only; not validated for MIUI compatibility and not a flashable build manifest."
+  },
+  "sources": [
+    {
+      "name": "device_tree",
+      "repository": "https://github.com/nekoshirro/device_xiaomi_joyeuse.git",
+      "branch": "13-FBEv1",
+      "commit": "7bedf8a993c58b7743aebd49dfc5e3a7bfa9242f",
+      "role": "AOSP-derived Joyeuse device configuration",
+      "status": "candidate_not_miui_ready"
+    },
+    {
+      "name": "vendor",
+      "repository": "https://github.com/nekoshirro/vendor_xiaomi_joyeuse.git",
+      "branch": "13",
+      "commit": "ad53e0661749e8f697d9ed3bcd2f9aa47b82cc29",
+      "role": "Joyeuse proprietary blobs",
+      "status": "origin_and_vintf_unverified"
+    },
+    {
+      "name": "kernel",
+      "repository": "https://github.com/ArrowOS-Devices/android_kernel_xiaomi_sm6250.git",
+      "branch": "arrow-13.0",
+      "commit": "a8dc7bc9a34a090eccfc4d8d5c53c694d0f85186",
+      "role": "SM6250 kernel source",
+      "status": "boot_vendor_compatibility_unverified"
+    }
+  ]
+}
